@@ -24,6 +24,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Scripts dengan kredensial
+scripts/ubah-password-guru.js
+scripts/test-jwt.js
+
 # IDE
 .vscode/
 .idea/
