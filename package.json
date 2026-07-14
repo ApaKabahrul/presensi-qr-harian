@@ -1,0 +1,39 @@
+{
+  "name": "presensi-qr-harian",
+  "version": "1.0.0",
+  "description": "Aplikasi presensi harian murid dengan QR code dan penyimpanan JSON",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "http-only": "set HTTPS=false&& node server/index.js"
+  },
+  "keywords": [
+    "presensi",
+    "qr-code",
+    "attendance",
+    "school"
+  ],
+  "author": "Bahrul Faizi",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.5",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "html5-qrcode": "^2.3.8",
+    "jsonfile": "^6.1.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lockfile": "^1.0.4",
+    "multer": "^1.4.5-lts.2",
+    "qrcode": "^1.5.3",
+    "select2": "^4.1.0-rc.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

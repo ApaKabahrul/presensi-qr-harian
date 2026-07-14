@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rekap Presensi - Presensi QR Harian</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Select2 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+  <style>
+    .select2-container--default .select2-selection--single {
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      height: 42px;
+    }
+    
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+      line-height: 40px;
+      color: var(--ink);
+    }
+    
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+      height: 40px;
+    }
+    
+    .select2-dropdown {
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .stat-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+    
+    .stat-card h3 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    
+    .stat-card p {
+      font-size: 12px;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .stat-hadir h3 { color: var(--accent); }
+    .stat-terlambat h3 { color: var(--amber); }
+    .stat-izin h3 { color: var(--blue); }
+    .stat-sakit h3 { color: var(--purple); }
+    .stat-alpha h3 { color: var(--coral); }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="/" class="navbar-brand">Presensi QR Harian</a>
+      
+      <ul class="navbar-nav">
+        <li><a href="/">🏠 Dashboard</a></li>
+        <li><a href="/presensi">📱 Presensi</a></li>
+        <li><a href="/murid">👨‍🎓 Murid</a></li>
+        <li><a href="/rekap" class="active">📊 Rekap</a></li>
+      </ul>
+      
+      <div class="navbar-user">
+        <span id="userName">Loading...</span>
+        <a href="/logout" class="btn btn-logout">🚪 Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Rekap Presensi</h1>
+      <p>Lihat dan export laporan presensi murid</p>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Filter Rekap</h2>
+      </div>
+      
+      <form id="filterForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tanggalMulai">Tanggal Mulai</label>
+            <input type="date" id="tanggalMulai" name="tanggal_mulai">
+          </div>
+          
+          <div class="form-group">
+            <label for="tanggalSelesai">Tanggal Selesai</label>
+            <input type="date" id="tanggalSelesai" name="tanggal_selesai">
+          </div>
+          
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="">Semua Status</option>
+              <option value="Hadir">Hadir</option>
+              <option value="Terlambat">Terlambat</option>
+              <option value="Izin">Izin</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Alpha">Alpha</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="idMurid">Nama Murid</label>
+            <select id="idMurid" name="id_murid" style="width: 100%;">
+              <option value="">Semua Murid</option>
+            </select>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 0.75rem;">
+          <button type="submit" class="btn btn-success">🔍 Filter</button>
+          <button type="button" class="btn" onclick="resetFilter()">🔄 Reset</button>
+          <button type="button" class="btn btn-info" onclick="exportPDF()">📄 Export PDF</button>
+          <button type="button" class="btn btn-info" onclick="exportExcel()">📊 Export Excel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Statistics Card -->
+    <div class="card" id="statsCard" style="display: none;">
+      <div class="card-header">
+        <h2>Statistik</h2>
+      </div>
+      
+      <div class="stats-grid">
+        <div class="stat-card stat-hadir">
+          <h3 id="statHadir">0</h3>
+          <p>Hadir</p>
+        </div>
+        <div class="stat-card stat-terlambat">
+          <h3 id="statTerlambat">0</h3>
+          <p>Terlambat</p>
+        </div>
+        <div class="stat-card stat-izin">
+          <h3 id="statIzin">0</h3>
+          <p>Izin</p>
+        </div>
+        <div class="stat-card stat-sakit">
+          <h3 id="statSakit">0</h3>
+          <p>Sakit</p>
+        </div>
+        <div class="stat-card stat-alpha">
+          <h3 id="statAlpha">0</h3>
+          <p>Alpha</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rekap Table Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Daftar Presensi</h2>
+        <span id="totalRecords" style="font-size: 13px; color: var(--ink-faint);"></span>
+      </div>
+      
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Tanggal</th>
+              <th>Foto</th>
+              <th>NIS</th>
+              <th>Nama</th>
+              <th>Jam</th>
+              <th>Status</th>
+              <th>Metode</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="rekapTableBody">
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 2rem;">Silakan pilih filter untuk melihat data</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- jQuery and Select2 JS -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  
+  <script>
+    let muridData = [];
+    let currentFilter = {};
+
+    // Load user info
+    async function loadUserInfo() {
+      try {
+        const response = await fetch('/api/auth/check', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (!data.success) {
+          window.location.href = '/login';
+          return;
+        }
+        
+        document.getElementById('userName').textContent = data.guru.name;
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    // Load murid data for filter
+    async function loadMuridData() {
+      try {
+        const response = await fetch('/api/murid', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          muridData = data.data.filter(m => m.status === 'aktif');
+          renderMuridSelect();
+          initSelect2();
+        }
+      } catch (error) {
+        console.error('Error loading murid data:', error);
+      }
+    }
+
+    // Render murid select options
+    function renderMuridSelect() {
+      const select = document.getElementById('idMurid');
+      select.innerHTML = '<option value="">Semua Murid</option>';
+      
+      muridData.forEach(murid => {
+        const option = document.createElement('option');
+        option.value = murid.id_murid;
+        option.textContent = `${murid.nis} - ${murid.nama}`;
+        select.appendChild(option);
+      });
+    }
+
+    // Initialize Select2
+    function initSelect2() {
+      $('#idMurid').select2({
+        placeholder: 'Cari nama murid...',
+        allowClear: true,
+        width: 'resolve',
+        language: {
+          noResults: function() {
+            return 'Murid tidak ditemukan';
+          },
+          searching: function() {
+            return 'Mencari...';
+          }
+        }
+      });
+    }
+
+    // Load rekap data
+    async function loadRekap() {
+      try {
+        const params = new URLSearchParams();
+        
+        if (currentFilter.tanggal_mulai) params.append('tanggal_mulai', currentFilter.tanggal_mulai);
+        if (currentFilter.tanggal_selesai) params.append('tanggal_selesai', currentFilter.tanggal_selesai);
+        if (currentFilter.status) params.append('status', currentFilter.status);
+        if (currentFilter.id_murid) params.append('id_murid', currentFilter.id_murid);
+        
+        const url = `/api/presensi/rekap?${params}`;
+        console.log('Fetching rekap from:', url);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        
+        const data = await response.json();
+        console.log('Rekap response:', data);
+        
+        if (data.success) {
+          renderRekapTable(data.data);
+          loadStatistik();
+        } else {
+          console.error('Rekap failed:', data.message);
+          alert('Gagal memuat rekap: ' + data.message);
+        }
+      } catch (error) {
+        console.error('Error loading rekap:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+
+    // Load statistik
+    async function loadStatistik() {
+      try {
+        const params = new URLSearchParams();
+        
+        if (currentFilter.tanggal_mulai) params.append('tanggal_mulai', currentFilter.tanggal_mulai);
+        if (currentFilter.tanggal_selesai) params.append('tanggal_selesai', currentFilter.tanggal_selesai);
+        
+        const url = `/api/presensi/statistik?${params}`;
+        console.log('Fetching statistik from:', url);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        
+        const data = await response.json();
+        console.log('Statistik response:', data);
+        
+        if (data.success) {
+          document.getElementById('statHadir').textContent = data.data.Hadir;
+          document.getElementById('statTerlambat').textContent = data.data.Terlambat;
+          document.getElementById('statIzin').textContent = data.data.Izin;
+          document.getElementById('statSakit').textContent = data.data.Sakit;
+          document.getElementById('statAlpha').textContent = data.data.Alpha;
+          
+          document.getElementById('statsCard').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error loading statistik:', error);
+      }
+    }
+
+    // Render rekap table
+    function renderRekapTable(data) {
+      const tbody = document.getElementById('rekapTableBody');
+      document.getElementById('totalRecords').textContent = `${data.length} data`;
+      
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem;">Tidak ada data untuk filter yang dipilih</td></tr>';
+        return;
+      }
+      
+      // Get murid data for photos
+      const getMuridFoto = (id_murid) => {
+        const murid = muridData.find(m => m.id_murid === id_murid);
+        if (murid && murid.foto_profil) {
+          return `<img src="${murid.foto_profil}?t=${Date.now()}" alt="${murid.nama}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.parentElement.innerHTML='👤'">`;
+        }
+        return '👤';
+      };
+      
+      tbody.innerHTML = data.map((p, index) => {
+        const badgeClass = `badge-${p.status.toLowerCase()}`;
+        
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${formatDate(p.tanggal)}</td>
+            <td style="text-align: center;">${getMuridFoto(p.id_murid)}</td>
+            <td>${p.nis || '-'}</td>
+            <td>${p.nama || '-'}</td>
+            <td>${p.jam_presensi || '-'}</td>
+            <td><span class="badge ${badgeClass}">${p.status}</span></td>
+            <td>${p.metode_presensi}</td>
+            <td>${p.keterangan || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Format date
+    function formatDate(dateStr) {
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      return new Date(dateStr).toLocaleDateString('id-ID', options);
+    }
+
+    // Filter form submit
+    document.getElementById('filterForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      currentFilter = {
+        tanggal_mulai: document.getElementById('tanggalMulai').value,
+        tanggal_selesai: document.getElementById('tanggalSelesai').value,
+        status: document.getElementById('status').value,
+        id_murid: document.getElementById('idMurid').value
+      };
+      
+      loadRekap();
+    });
+
+    // Reset filter
+    function resetFilter() {
+      document.getElementById('filterForm').reset();
+      $('#idMurid').val(null).trigger('change');
+      currentFilter = {};
+      loadRekap();
+      document.getElementById('statsCard').style.display = 'none';
+      document.getElementById('totalRecords').textContent = '';
+    }
+
+    // Export PDF
+    function exportPDF() {
+      const params = new URLSearchParams(currentFilter);
+      window.location.href = `/api/export/pdf?${params}`;
+    }
+
+    // Export Excel
+    function exportExcel() {
+      const params = new URLSearchParams(currentFilter);
+      window.location.href = `/api/export/excel?${params}`;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserInfo();
+      loadMuridData();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Murid - Presensi QR Harian</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="/" class="navbar-brand">Presensi QR Harian</a>
+      
+      <ul class="navbar-nav">
+        <li><a href="/">🏠 Dashboard</a></li>
+        <li><a href="/presensi">📱 Presensi</a></li>
+        <li><a href="/murid" class="active">👨‍🎓 Murid</a></li>
+        <li><a href="/rekap">📊 Rekap</a></li>
+      </ul>
+      
+      <div class="navbar-user">
+        <span id="userName">Loading...</span>
+        <a href="/logout" class="btn btn-logout">🚪 Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Manajemen Murid</h1>
+      <p>Kelola data murid dan QR code presensi</p>
+    </div>
+
+    <!-- Add Murid Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Tambah Murid Baru</h2>
+      </div>
+      
+      <form id="addMuridForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="nis">NIS</label>
+            <input type="text" id="nis" name="nis" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="nama">Nama Lengkap</label>
+            <input type="text" id="nama" name="nama" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="aktif">Aktif</option>
+              <option value="nonaktif">Nonaktif</option>
+            </select>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Tambah Murid</button>
+      </form>
+    </div>
+
+    <!-- Murid List Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Daftar Murid</h2>
+        <button class="btn btn-sm btn-info" onclick="loadMuridData()">🔄 Refresh</button>
+      </div>
+      
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Foto</th>
+              <th>NIS</th>
+              <th>Nama</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="muridTableBody">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 2rem;">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Edit Murid Modal -->
+  <div class="modal-overlay" id="editMuridModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Data Murid</h3>
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      
+      <form id="editMuridForm">
+        <input type="hidden" id="editIdMurid" name="id_murid">
+        
+        <div class="form-group">
+          <label for="editNis">NIS</label>
+          <input type="text" id="editNis" name="nis" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="editNama">Nama Lengkap</label>
+          <input type="text" id="editNama" name="nama" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="editStatus">Status</label>
+          <select id="editStatus" name="status">
+            <option value="aktif">Aktif</option>
+            <option value="nonaktif">Nonaktif</option>
+          </select>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn" onclick="closeEditModal()">Batal</button>
+          <button type="submit" class="btn btn-success">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Upload Foto Modal -->
+  <div class="modal-overlay" id="uploadFotoModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Upload Foto Profil</h3>
+        <button class="modal-close" onclick="closeUploadFotoModal()">&times;</button>
+      </div>
+      
+      <p id="uploadMuridName" style="margin-bottom: 1rem; font-weight: 500; color: var(--ink-muted);"></p>
+      
+      <div id="fotoPreview" style="text-align: center; margin-bottom: 1rem;">
+        <img id="previewImage" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 50%; object-fit: cover; border: 3px solid var(--border); display: none;">
+        <div id="previewPlaceholder" style="width: 150px; height: 150px; border-radius: 50%; background: var(--border); margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 48px; color: var(--ink-faint);">
+          👤
+        </div>
+      </div>
+      
+      <form id="uploadFotoForm">
+        <input type="hidden" id="uploadIdMurid" name="id_murid">
+        
+        <div class="form-group">
+          <label for="fotoInput">Pilih Foto (JPG, PNG, WEBP - Max 5MB)</label>
+          <input type="file" id="fotoInput" name="foto" accept="image/jpeg,image/png,image/webp" required>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn" onclick="closeUploadFotoModal()">Batal</button>
+          <button type="submit" class="btn btn-success">Upload Foto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- QR Code Modal -->
+  <div class="modal-overlay" id="qrModal">
+    <div class="modal" style="text-align: center;">
+      <div class="modal-header">
+        <h3>QR Code Murid</h3>
+        <button class="modal-close" onclick="closeQrModal()">&times;</button>
+      </div>
+      
+      <p id="qrMuridName" style="margin-bottom: 1rem; font-weight: 500;"></p>
+      
+      <div id="qrCodeContainer" style="margin: 1.5rem 0;"></div>
+      
+      <p style="font-size: 12px; color: var(--ink-faint); word-break: break-all;" id="qrToken"></p>
+      
+      <div class="modal-footer">
+        <button class="btn" onclick="closeQrModal()">Tutup</button>
+        <button class="btn btn-success" onclick="printQR()">🖨️ Cetak QR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QRCode Library -->
+  <script src="/js/qrcode-local.js"></script>
+  
+  <script>
+    let muridData = [];
+
+    // Load user info
+    async function loadUserInfo() {
+      try {
+        const response = await fetch('/api/auth/check', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (!data.success) {
+          window.location.href = '/login';
+          return;
+        }
+        
+        document.getElementById('userName').textContent = data.guru.name;
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    // Load murid data
+    async function loadMuridData() {
+      try {
+        const response = await fetch('/api/murid', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          muridData = data.data;
+          renderMuridTable();
+        }
+      } catch (error) {
+        console.error('Error loading murid data:', error);
+      }
+    }
+
+    // Render murid table
+    function renderMuridTable() {
+      const tbody = document.getElementById('muridTableBody');
+      
+      if (muridData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Belum ada data murid</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = muridData.map((murid, index) => {
+        const fotoHtml = murid.foto_profil 
+          ? `<img src="${murid.foto_profil}?t=${Date.now()}" alt="${murid.nama}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23ddd%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 font-size=%2240%22 fill=%22%23999%22>👤</text></svg>'">`
+          : `<div style="width: 40px; height: 40px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--ink-faint);">👤</div>`;
+        
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${fotoHtml}</td>
+            <td>${murid.nis}</td>
+            <td>${murid.nama}</td>
+            <td>
+              <span class="badge ${murid.status === 'aktif' ? 'badge-hadir' : 'badge-alpha'}">
+                ${murid.status}
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick='openUploadFotoModal("${murid.id_murid}")' title="Upload Foto">
+                📷 Foto
+              </button>
+              <button class="btn btn-sm btn-info" onclick='showQR("${murid.id_murid}")' title="Lihat QR">
+                📱 QR
+              </button>
+              <button class="btn btn-sm btn-success" onclick='openEditModal("${murid.id_murid}")' title="Edit">
+                ✏️
+              </button>
+              <button class="btn btn-sm btn-danger" onclick='deleteMurid("${murid.id_murid}")' title="Hapus">
+                🗑️
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Add murid
+    document.getElementById('addMuridForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const nis = document.getElementById('nis').value;
+      const nama = document.getElementById('nama').value;
+      const status = document.getElementById('status').value;
+      
+      try {
+        const response = await fetch('/api/murid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ nis, nama, status })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('Murid berhasil ditambahkan!');
+          document.getElementById('addMuridForm').reset();
+          loadMuridData();
+        } else {
+          alert('Gagal: ' + data.message);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Gagal menambahkan murid');
+      }
+    });
+
+    // Open edit modal
+    function openEditModal(id_murid) {
+      const murid = muridData.find(m => m.id_murid === id_murid);
+      if (!murid) return;
+      
+      document.getElementById('editIdMurid').value = murid.id_murid;
+      document.getElementById('editNis').value = murid.nis;
+      document.getElementById('editNama').value = murid.nama;
+      document.getElementById('editStatus').value = murid.status;
+      
+      document.getElementById('editMuridModal').classList.add('active');
+    }
+
+    // Close edit modal
+    function closeEditModal() {
+      document.getElementById('editMuridModal').classList.remove('active');
+    }
+
+    // Update murid
+    document.getElementById('editMuridForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const id_murid = document.getElementById('editIdMurid').value;
+      const nis = document.getElementById('editNis').value;
+      const nama = document.getElementById('editNama').value;
+      const status = document.getElementById('editStatus').value;
+      
+      try {
+        const response = await fetch(`/api/murid/${id_murid}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ nis, nama, status })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('Data murid berhasil diupdate!');
+          closeEditModal();
+          loadMuridData();
+        } else {
+          alert('Gagal: ' + data.message);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Gagal mengupdate data murid');
+      }
+    });
+
+    // Delete murid
+    async function deleteMurid(id_murid) {
+      if (!confirm('Apakah Anda yakin ingin menghapus murid ini?')) return;
+      
+      try {
+        const response = await fetch(`/api/murid/${id_murid}`, {
+          method: 'DELETE',
+          credentials: 'same-origin'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('Murid berhasil dihapus!');
+          loadMuridData();
+        } else {
+          alert('Gagal: ' + data.message);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Gagal menghapus murid');
+      }
+    }
+
+    // Show QR code
+    async function showQR(id_murid) {
+      const murid = muridData.find(m => m.id_murid === id_murid);
+      if (!murid) return;
+      
+      document.getElementById('qrMuridName').textContent = `${murid.nama} (${murid.nis})`;
+      document.getElementById('qrToken').textContent = murid.qr_token;
+      
+      // Generate QR code
+      const qrContainer = document.getElementById('qrCodeContainer');
+      qrContainer.innerHTML = '';
+      
+      try {
+        // Use local QR code generator
+        generateQRCodeSVG(murid.qr_token, qrContainer, 256);
+        
+        // Wait for QR code to load
+        setTimeout(() => {
+          document.getElementById('qrModal').classList.add('active');
+        }, 500);
+      } catch (error) {
+        console.error('Error generating QR:', error);
+        qrContainer.innerHTML = '<p style="color: var(--coral);">Gagal generate QR code</p>';
+        document.getElementById('qrModal').classList.add('active');
+      }
+    }
+
+    // Close QR modal
+    function closeQrModal() {
+      document.getElementById('qrModal').classList.remove('active');
+    }
+
+    // Print QR
+    function printQR() {
+      const qrImage = document.getElementById('qrImage');
+      const muridName = document.getElementById('qrMuridName').textContent;
+      
+      if (!qrImage) {
+        alert('QR code belum di-generate');
+        return;
+      }
+      
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Cetak QR - ${muridName}</title>
+            <style>
+              body { text-align: center; font-family: Arial, sans-serif; padding: 2rem; }
+              h2 { margin-bottom: 0.5rem; }
+              p { color: #666; margin-bottom: 2rem; }
+              img { border: 2px solid #333; padding: 1rem; }
+            </style>
+          </head>
+          <body>
+            <h2>${muridName}</h2>
+            <p>QR Code Presensi Harian</p>
+            <img src="${qrImage.src}" alt="QR Code">
+            <script>
+              window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 100); };
+            <\/script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
+    // ========== FOTO PROFIL FUNCTIONS ==========
+
+    // Open upload foto modal
+    function openUploadFotoModal(id_murid) {
+      const murid = muridData.find(m => m.id_murid === id_murid);
+      if (!murid) return;
+      
+      document.getElementById('uploadIdMurid').value = murid.id_murid;
+      document.getElementById('uploadMuridName').textContent = `${murid.nama} (${murid.nis})`;
+      
+      // Reset form
+      document.getElementById('uploadFotoForm').reset();
+      
+      // Show current photo or placeholder
+      const previewImg = document.getElementById('previewImage');
+      const placeholder = document.getElementById('previewPlaceholder');
+      
+      if (murid.foto_profil) {
+        previewImg.src = murid.foto_profil + '?t=' + Date.now();
+        previewImg.style.display = 'block';
+        placeholder.style.display = 'none';
+      } else {
+        previewImg.src = '';
+        previewImg.style.display = 'none';
+        placeholder.style.display = 'flex';
+      }
+      
+      document.getElementById('uploadFotoModal').classList.add('active');
+    }
+
+    // Close upload foto modal
+    function closeUploadFotoModal() {
+      document.getElementById('uploadFotoModal').classList.remove('active');
+    }
+
+    // Preview photo before upload
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('fotoInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const previewImg = document.getElementById('previewImage');
+            const placeholder = document.getElementById('previewPlaceholder');
+            previewImg.src = e.target.result;
+            previewImg.style.display = 'block';
+            placeholder.style.display = 'none';
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    });
+
+    // Upload foto handler
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('uploadFotoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const id_murid = document.getElementById('uploadIdMurid').value;
+        const fotoInput = document.getElementById('fotoInput');
+        
+        if (!fotoInput.files[0]) {
+          alert('Pilih foto terlebih dahulu');
+          return;
+        }
+        
+        const formData = new FormData();
+        formData.append('foto', fotoInput.files[0]);
+        
+        try {
+          const response = await fetch(`/api/murid/${id_murid}/upload-foto`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            alert('Foto profil berhasil diupload!');
+            closeUploadFotoModal();
+            loadMuridData();
+          } else {
+            alert('Gagal: ' + data.message);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Gagal mengupload foto');
+        }
+      });
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserInfo();
+      loadMuridData();
+    });
+  </script>
+</body>
+</html>

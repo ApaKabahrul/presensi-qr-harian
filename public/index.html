@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Presensi QR Harian</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="/" class="navbar-brand">Presensi QR Harian</a>
+      
+      <ul class="navbar-nav">
+        <li><a href="/" class="active">🏠 Dashboard</a></li>
+        <li><a href="/presensi">📱 Presensi</a></li>
+        <li><a href="/murid">👨‍🎓 Murid</a></li>
+        <li><a href="/rekap">📊 Rekap</a></li>
+      </ul>
+      
+      <div class="navbar-user">
+        <span id="userName">Loading...</span>
+        <a href="/logout" class="btn btn-logout">🚪 Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <p>Selamat datang di aplikasi presensi QR harian</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <p style="font-size: 13px; color: var(--ink-faint); margin-bottom: 0.5rem;">Total Murid</p>
+            <h2 style="font-size: 32px; font-weight: 600; color: var(--accent);" id="totalMurid">0</h2>
+          </div>
+          <div style="width: 48px; height: 48px; background: var(--accent-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">👨‍🎓</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <p style="font-size: 13px; color: var(--ink-faint); margin-bottom: 0.5rem;">Presensi Hari Ini</p>
+            <h2 style="font-size: 32px; font-weight: 600; color: var(--blue);" id="presensiHariIni">0</h2>
+          </div>
+          <div style="width: 48px; height: 48px; background: var(--blue-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📋</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <p style="font-size: 13px; color: var(--ink-faint); margin-bottom: 0.5rem;">Hadir Hari Ini</p>
+            <h2 style="font-size: 32px; font-weight: 600; color: var(--accent-mid);" id="hadirHariIni">0</h2>
+          </div>
+          <div style="width: 48px; height: 48px; background: var(--accent-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">✓</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Aksi Cepat</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <a href="/presensi" class="btn btn-success" style="text-align: center; text-decoration: none;">
+          📱 Presensi Hari Ini
+        </a>
+        <a href="/murid" class="btn btn-info" style="text-align: center; text-decoration: none;">
+          👨‍🎓 Kelola Murid
+        </a>
+        <a href="/rekap" class="btn btn-warning" style="text-align: center; text-decoration: none;">
+          📊 Lihat Rekap
+        </a>
+      </div>
+    </div>
+
+    <!-- Today's Date -->
+    <div class="card">
+      <p style="color: var(--ink-muted);">
+        📅 Tanggal hari ini: <strong id="todayDate">Loading...</strong>
+      </p>
+    </div>
+  </main>
+
+  <script>
+    // Get user info
+    async function loadUserInfo() {
+      try {
+        const response = await fetch('/api/auth/check', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (!data.success) {
+          window.location.href = '/login';
+          return;
+        }
+        
+        document.getElementById('userName').textContent = data.guru.name;
+      } catch (error) {
+        console.error('Error loading user info:', error);
+      }
+    }
+
+    // Load dashboard stats
+    async function loadDashboardStats() {
+      try {
+        // Get murid count
+        const muridResponse = await fetch('/api/murid', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const muridData = await muridResponse.json();
+        
+        if (muridData.success) {
+          const aktifCount = muridData.data.filter(m => m.status === 'aktif').length;
+          document.getElementById('totalMurid').textContent = aktifCount;
+        }
+        
+        // Get today's presensi
+        const today = new Date().toISOString().split('T')[0];
+        const presensiResponse = await fetch(`/api/presensi/${today}`, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const presensiData = await presensiResponse.json();
+        
+        if (presensiData.success) {
+          const total = presensiData.data.length;
+          const hadir = presensiData.data.filter(p => p.status === 'Hadir' || p.status === 'Terlambat').length;
+          
+          document.getElementById('presensiHariIni').textContent = total;
+          document.getElementById('hadirHariIni').textContent = hadir;
+        }
+        
+        // Set today's date
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('todayDate').textContent = new Date().toLocaleDateString('id-ID', options);
+        
+      } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserInfo();
+      loadDashboardStats();
+    });
+  </script>
+</body>
+</html>

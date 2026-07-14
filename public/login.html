@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Presensi QR Harian</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-header">
+        <span class="login-icon">🏫</span>
+        <h1>Presensi QR Harian</h1>
+        <p>Silakan login untuk melanjutkan 👋</p>
+      </div>
+      
+      <div id="alertContainer"></div>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="username">👤 Username</label>
+          <input type="text" id="username" name="username" required autocomplete="username" placeholder="Masukkan username...">
+        </div>
+        
+        <div class="form-group">
+          <label for="password">🔑 Password</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Masukkan password...">
+        </div>
+        
+        <button type="submit" class="btn btn-primary" id="loginBtn">
+          🚀 Login
+        </button>
+      </form>
+      
+      <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 3px dashed var(--border);">
+        <p style="font-size: 13px; color: var(--ink-faint); text-align: center;">
+          🔐 Default: Username <strong>guru</strong>, Password <strong>guru123</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const loginForm = document.getElementById('loginForm');
+    const alertContainer = document.getElementById('alertContainer');
+    const loginBtn = document.getElementById('loginBtn');
+
+    // Cek jika sudah login
+    fetch('/api/auth/check')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          window.location.href = '/';
+        }
+      })
+      .catch(err => {
+        console.error('Error checking auth:', err);
+      });
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      // Disable button
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="loading"></span> Logging in...';
+      
+      // Clear alerts
+      alertContainer.innerHTML = '';
+      
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showAlert('Login berhasil! Mengalihkan...', 'success');
+          setTimeout(() => {
+            window.location.href = data.redirect || '/';
+          }, 500);
+        } else {
+          showAlert(data.message || 'Login gagal', 'error');
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Login';
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showAlert('Terjadi kesalahan. Silakan coba lagi.', 'error');
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Login';
+      }
+    });
+
+    function showAlert(message, type) {
+      const alertClass = type === 'error' ? 'alert-error' : 'alert-success';
+      alertContainer.innerHTML = `
+        <div class="alert ${alertClass}">
+          ${message}
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

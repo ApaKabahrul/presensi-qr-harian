@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+
+# Data files (JSON storage - sudah di Supabase)
+data/*.json
+data/*.lock
+
+# SSL certificates (auto-generated)
+certs/
+
+# Uploads
+public/uploads/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build output
+dist/
+build/

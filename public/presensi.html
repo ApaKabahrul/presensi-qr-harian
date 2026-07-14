@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presensi Harian - Presensi QR Harian</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    #qr-reader {
+      width: 100%;
+      max-width: 500px;
+      margin: 1rem 0;
+      border: 4px solid var(--yellow);
+      border-radius: 24px;
+      overflow: hidden;
+    }
+    
+    .scanner-status {
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      text-align: center;
+      font-weight: 500;
+    }
+    
+    .scanner-success {
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent-mid);
+    }
+    
+    .scanner-error {
+      background: #fef0ed;
+      color: var(--coral);
+      border: 1px solid var(--coral);
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <a href="/" class="navbar-brand">Presensi QR Harian</a>
+      
+      <ul class="navbar-nav">
+        <li><a href="/">🏠 Dashboard</a></li>
+        <li><a href="/presensi" class="active">📱 Presensi</a></li>
+        <li><a href="/murid">👨‍🎓 Murid</a></li>
+        <li><a href="/rekap">📊 Rekap</a></li>
+      </ul>
+      
+      <div class="navbar-user">
+        <span id="userName">Loading...</span>
+        <a href="/logout" class="btn btn-logout">🚪 Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Presensi Harian</h1>
+      <p id="todayDate">Loading...</p>
+    </div>
+
+    <!-- Scanner Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>📷 Scan QR Murid</h2>
+      </div>
+      
+      <div id="qr-reader"></div>
+      
+      <div id="scannerStatus"></div>
+      
+      <!-- Debug info (hidden by default, visible during scan) -->
+      <div id="debugInfo" style="display: none; margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 8px; font-family: monospace; font-size: 14px; word-break: break-all;"></div>
+      
+      <button class="btn btn-info" onclick="startCamera()" id="startCameraBtn" style="margin-top: 1rem; display: none;">
+        📷 Mulai Kamera
+      </button>
+      
+      <p style="font-size: 16px; color: var(--ink-muted); margin-top: 1rem; text-align: center;">
+        Arahkan kamera ke QR code murid untuk mencatat presensi 🎯
+      </p>
+    </div>
+
+    <!-- Manual Absen Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>✏️ Absen Manual</h2>
+      </div>
+      
+      <form id="manualAbsenForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="manualMurid">👤 Pilih Murid</label>
+            <select id="manualMurid" name="id_murid" required>
+              <option value="">-- Pilih Murid --</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="manualStatus">📋 Status</label>
+            <select id="manualStatus" name="status" required>
+              <option value="">-- Pilih Status --</option>
+              <option value="Hadir">✅ Hadir</option>
+              <option value="Terlambat">⏰ Terlambat</option>
+              <option value="Izin">📝 Izin</option>
+              <option value="Sakit">🤒 Sakit</option>
+              <option value="Alpha">❌ Alpha</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="manualKeterangan">💬 Keterangan (Wajib)</label>
+          <textarea id="manualKeterangan" name="keterangan" rows="3" required placeholder="Masukkan keterangan absen manual..."></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-success">💾 Catat Absen Manual</button>
+      </form>
+    </div>
+
+    <!-- Close Presensi Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>🔒 Tutup Presensi</h2>
+      </div>
+      
+      <p style="color: var(--ink-muted); margin-bottom: 1rem;">
+        Menutup presensi akan memberikan status Alpha otomatis untuk murid yang belum tercatat.
+      </p>
+      
+      <button class="btn btn-danger" onclick="tutupPresensi()">🔒 Tutup Presensi Hari Ini</button>
+    </div>
+
+    <!-- Today's Presensi List -->
+    <div class="card">
+      <div class="card-header">
+        <h2>📋 Presensi Hari Ini</h2>
+        <button class="btn btn-sm btn-info" onclick="loadPresensiHariIni()">🔄 Refresh</button>
+      </div>
+      
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Foto</th>
+              <th>NIS</th>
+              <th>Nama</th>
+              <th>Jam</th>
+              <th>Status</th>
+              <th>Metode</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="presensiTableBody">
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 2rem;">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Success Modal for QR Scan -->
+  <div class="modal-overlay" id="successScanModal">
+    <div class="modal">
+      <div class="success-modal-content">
+        <span class="success-icon">🎉</span>
+        <h2>Presensi Berhasil!</h2>
+        <div id="successStudentPhoto"></div>
+        <p class="student-name" id="successStudentName"></p>
+        <p class="student-nis" id="successStudentNis"></p>
+        <span class="status-badge" id="successStatus"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTML5-QRCode Library (Local) -->
+  <script src="/js/html5-qrcode.min.js"></script>
+  
+  <script>
+    // Wait for library to load
+    window.addEventListener('load', function() {
+      console.log('Page loaded, checking Html5QrcodeScanner...');
+      console.log('Html5QrcodeScanner available:', typeof Html5QrcodeScanner !== 'undefined');
+    });
+    
+    let html5QrcodeScanner = null;
+    let muridData = [];
+    let presensiData = [];
+    const today = new Date().toISOString().split('T')[0];
+
+    // Load user info
+    async function loadUserInfo() {
+      try {
+        const response = await fetch('/api/auth/check', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (!data.success) {
+          window.location.href = '/login';
+          return;
+        }
+        
+        document.getElementById('userName').textContent = data.guru.name;
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    // Load murid data for manual absen
+    async function loadMuridData() {
+      try {
+        const response = await fetch('/api/murid', {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          muridData = data.data.filter(m => m.status === 'aktif');
+          renderMuridSelect();
+        }
+      } catch (error) {
+        console.error('Error loading murid data:', error);
+      }
+    }
+
+    // Render murid select
+    function renderMuridSelect() {
+      const select = document.getElementById('manualMurid');
+      select.innerHTML = '<option value="">-- Pilih Murid --</option>';
+      
+      muridData.forEach(murid => {
+        const option = document.createElement('option');
+        option.value = murid.id_murid;
+        option.textContent = `${murid.nis} - ${murid.nama}`;
+        select.appendChild(option);
+      });
+    }
+
+    // Load today's presensi
+    async function loadPresensiHariIni() {
+      try {
+        const response = await fetch(`/api/presensi/${today}`, {
+          method: 'GET',
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          presensiData = data.data;
+          renderPresensiTable();
+        }
+      } catch (error) {
+        console.error('Error loading presensi:', error);
+      }
+    }
+
+    // Render presensi table
+    function renderPresensiTable() {
+      const tbody = document.getElementById('presensiTableBody');
+      
+      if (presensiData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;">Belum ada data presensi hari ini</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = presensiData.map((p, index) => {
+        const murid = muridData.find(m => m.id_murid === p.id_murid);
+        const badgeClass = `badge-${p.status.toLowerCase()}`;
+        
+        const fotoHtml = murid && murid.foto_profil 
+          ? `<img src="${murid.foto_profil}?t=${Date.now()}" alt="${murid.nama}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23ddd%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 font-size=%2240%22 fill=%22%23999%22>👤</text></svg>'">`
+          : `<div style="width: 35px; height: 35px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</div>`;
+        
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${fotoHtml}</td>
+            <td>${murid ? murid.nis : '-'}</td>
+            <td>${murid ? murid.nama : '-'}</td>
+            <td>${p.jam_presensi || '-'}</td>
+            <td><span class="badge ${badgeClass}">${p.status}</span></td>
+            <td>${p.metode_presensi}</td>
+            <td>${p.keterangan || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Initialize QR scanner
+    function initQRScanner() {
+      const statusDiv = document.getElementById('scannerStatus');
+      const startBtn = document.getElementById('startCameraBtn');
+      
+      // Check if Html5QrcodeScanner is available
+      if (typeof Html5QrcodeScanner === 'undefined') {
+        statusDiv.className = 'scanner-status scanner-error';
+        statusDiv.innerHTML = '❌ Gagal memuat library QR scanner. Periksa koneksi internet Anda.';
+        console.error('Html5QrcodeScanner library not loaded');
+        return;
+      }
+      
+      // Check if camera is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        const isHTTPS = location.protocol === 'https:';
+        statusDiv.className = 'scanner-status scanner-error';
+        if (!isHTTPS && !isLocalhost) {
+          statusDiv.innerHTML = '❌ Kamera tidak dapat diakses.<br><small>Akses dari HP harus menggunakan <b>https://</b> (bukan http://).<br>Gunakan alamat <b>https://' + location.hostname + ':3443</b></small>';
+        } else {
+          statusDiv.innerHTML = '❌ Browser Anda tidak mendukung akses kamera. Gunakan Chrome/Edge terbaru.';
+        }
+        console.error('Camera not supported in this browser');
+        return;
+      }
+      
+      // Show start camera button instead of auto-start
+      startBtn.style.display = 'inline-block';
+      statusDiv.className = 'scanner-status';
+      statusDiv.innerHTML = '⏳ Klik tombol "Mulai Kamera" untuk memulai scan QR';
+    }
+
+    // Start camera manually
+    async function startCamera() {
+      const statusDiv = document.getElementById('scannerStatus');
+      const startBtn = document.getElementById('startCameraBtn');
+      const qrReaderDiv = document.getElementById('qr-reader');
+      
+      try {
+        statusDiv.className = 'scanner-status';
+        statusDiv.innerHTML = '⏳ Memulai kamera...';
+        startBtn.disabled = true;
+        
+        // Destroy existing scanner if any
+        if (html5QrcodeScanner) {
+          try {
+            await html5QrcodeScanner.clear();
+          } catch (e) {
+            console.log('Error clearing old scanner:', e);
+          }
+          html5QrcodeScanner = null;
+        }
+        
+        // Clear the QR reader container
+        qrReaderDiv.innerHTML = '';
+        
+        // Get available cameras
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        if (videoDevices.length === 0) {
+          throw new Error('Tidak ada kamera yang ditemukan');
+        }
+        
+        html5QrcodeScanner = new Html5QrcodeScanner(
+          "qr-reader",
+          { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            rememberLastUsedCamera: true,
+            facingMode: 'environment'
+          },
+          false
+        );
+        
+        await html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        
+        statusDiv.className = 'scanner-status scanner-success';
+        statusDiv.innerHTML = '✅ Kamera aktif - Arahkan QR code ke kamera';
+        startBtn.style.display = 'none';
+        
+        console.log('QR Scanner started successfully');
+      } catch (error) {
+        statusDiv.className = 'scanner-status scanner-error';
+        statusDiv.innerHTML = '❌ Gagal memulai kamera: ' + error.message;
+        startBtn.disabled = false;
+        console.error('Error starting camera:', error);
+      }
+    }
+
+    // QR scan success callback
+    async function onScanSuccess(decodedText) {
+      console.log('✅ QR Scanned Successfully!');
+      console.log('Token detected:', decodedText);
+      console.log('Date:', today);
+      
+      // Show debug info
+      const debugDiv = document.getElementById('debugInfo');
+      debugDiv.style.display = 'block';
+      debugDiv.innerHTML = `<strong>Token terdeteksi:</strong><br>${decodedText}<br><strong>Tanggal:</strong> ${today}`;
+      
+      // Pause scanner temporarily (don't clear, just pause)
+      if (html5QrcodeScanner) {
+        try {
+          await html5QrcodeScanner.pause();
+        } catch (e) {
+          console.log('Error pausing scanner:', e);
+        }
+      }
+      
+      const statusDiv = document.getElementById('scannerStatus');
+      statusDiv.className = 'scanner-status';
+      statusDiv.innerHTML = '⏳ Memproses scan...';
+      console.log('Sending request to /api/presensi/scan...');
+      
+      try {
+        const requestBody = { 
+          token: decodedText,
+          tanggal: today 
+        };
+        console.log('Request body:', JSON.stringify(requestBody));
+        
+        const response = await fetch('/api/presensi/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(requestBody)
+        });
+        
+        console.log('Response status:', response.status);
+        
+        const data = await response.json();
+        console.log('Response data:', data);
+        
+        if (data.success) {
+          statusDiv.className = 'scanner-status scanner-success';
+          statusDiv.innerHTML = `✅ ${data.message}`;
+          debugDiv.innerHTML += `<br><strong style="color: green;">✅ ${data.message}</strong>`;
+          
+          // Find student data and show success modal
+          const student = muridData.find(m => m.qr_token === decodedText);
+          if (student) {
+            showSuccessModal(student, data.message);
+          }
+          
+          // Reload presensi data
+          loadPresensiHariIni();
+          loadMuridData();
+        } else {
+          statusDiv.className = 'scanner-status scanner-error';
+          statusDiv.innerHTML = `❌ ${data.message}`;
+          debugDiv.innerHTML += `<br><strong style="color: red;">❌ ${data.message}</strong>`;
+        }
+      } catch (error) {
+        console.error('❌ Error processing scan:', error);
+        statusDiv.className = 'scanner-status scanner-error';
+        statusDiv.innerHTML = '❌ Gagal memproses scan: ' + error.message;
+        debugDiv.innerHTML += `<br><strong style="color: red;">❌ Error: ${error.message}</strong>`;
+      }
+      
+      // Resume scanner after 3 seconds
+      setTimeout(async () => {
+        console.log('Resuming scanner...');
+        statusDiv.innerHTML = '';
+        debugDiv.style.display = 'none';
+        
+        if (html5QrcodeScanner) {
+          try {
+            await html5QrcodeScanner.resume();
+            statusDiv.className = 'scanner-status scanner-success';
+            statusDiv.innerHTML = '✅ Kamera aktif - Arahkan QR code ke kamera';
+            console.log('Scanner resumed successfully');
+          } catch (err) {
+            console.error('❌ Error resuming scanner:', err);
+            statusDiv.className = 'scanner-status scanner-error';
+            statusDiv.innerHTML = '❌ Gagal melanjutkan scanner';
+          }
+        }
+      }, 3000);
+    }
+
+    // QR scan failure callback
+    function onScanFailure(error) {
+      // Report camera permission errors clearly
+      if (error && (typeof error === 'string') && error.includes('NotAllowedError')) {
+        const statusDiv = document.getElementById('scannerStatus');
+        statusDiv.className = 'scanner-status scanner-error';
+        statusDiv.innerHTML = '❌ Izin kamera ditolak.<br><small>Di HP: gunakan <b>https://</b> (bukan http://).<br>Klik ikon gembok di address bar lalu izinkan kamera.</small>';
+        console.error('Camera permission denied:', error);
+      }
+      // Ignore other continuous scan failures
+    }
+
+    // Show success modal with student photo
+    function showSuccessModal(student, status) {
+      const modal = document.getElementById('successScanModal');
+      const photoDiv = document.getElementById('successStudentPhoto');
+      const nameEl = document.getElementById('successStudentName');
+      const nisEl = document.getElementById('successStudentNis');
+      const statusEl = document.getElementById('successStatus');
+      
+      // Set student photo
+      if (student.foto_profil) {
+        photoDiv.innerHTML = `<img src="${student.foto_profil}?t=${Date.now()}" alt="${student.nama}" class="student-photo">`;
+      } else {
+        photoDiv.innerHTML = `<div class="student-photo-placeholder">👤</div>`;
+      }
+      
+      // Set student info
+      nameEl.textContent = student.nama;
+      nisEl.textContent = `NIS: ${student.nis}`;
+      
+      // Set status badge
+      const badgeClass = `badge-${status.toLowerCase()}`;
+      statusEl.className = `status-badge ${badgeClass}`;
+      statusEl.textContent = status;
+      
+      // Show modal
+      modal.classList.add('active');
+      
+      // Create confetti effect
+      createConfetti();
+      
+      // Auto close after 4 seconds
+      setTimeout(() => {
+        modal.classList.remove('active');
+      }, 4000);
+    }
+
+    // Create confetti effect
+    function createConfetti() {
+      const colors = ['#ff6b6b', '#ff9f43', '#feca57', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff9ff3'];
+      
+      for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animation = `confetti-fall ${Math.random() * 3 + 2}s linear forwards`;
+        confetti.style.animationDelay = Math.random() * 2 + 's';
+        document.body.appendChild(confetti);
+        
+        // Remove confetti after animation
+        setTimeout(() => {
+          confetti.remove();
+        }, 5000);
+      }
+    }
+
+    // Manual absen
+    document.getElementById('manualAbsenForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const id_murid = document.getElementById('manualMurid').value;
+      const status = document.getElementById('manualStatus').value;
+      const keterangan = document.getElementById('manualKeterangan').value;
+      
+      try {
+        const response = await fetch('/api/presensi/manual', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ 
+            id_murid, 
+            tanggal: today,
+            status, 
+            keterangan 
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('Absen manual berhasil dicatat!');
+          document.getElementById('manualAbsenForm').reset();
+          loadPresensiHariIni();
+          loadMuridData();
+        } else {
+          alert('Gagal: ' + data.message);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Gagal mencatat absen manual');
+      }
+    });
+
+    // Tutup presensi
+    async function tutupPresensi() {
+      if (!confirm('Apakah Anda yakin ingin menutup presensi hari ini? Murid yang belum tercatat akan mendapat status Alpha.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/presensi/tutup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ tanggal: today })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert(data.message);
+          loadPresensiHariIni();
+        } else {
+          alert('Gagal: ' + data.message);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Gagal menutup presensi');
+      }
+    }
+
+    // Set today's date
+    function setTodayDate() {
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('todayDate').textContent = new Date().toLocaleDateString('id-ID', options);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserInfo();
+      loadMuridData();
+      loadPresensiHariIni();
+      setTodayDate();
+      initQRScanner();
+    });
+  </script>
+</body>
+</html>
