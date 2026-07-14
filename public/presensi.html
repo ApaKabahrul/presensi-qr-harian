@@ -200,7 +200,7 @@
       try {
         const response = await fetch('/api/auth/check', {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const data = await response.json();
         
@@ -220,7 +220,7 @@
       try {
         const response = await fetch('/api/murid', {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const data = await response.json();
         
@@ -251,7 +251,7 @@
       try {
         const response = await fetch(`/api/presensi/${today}`, {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const data = await response.json();
         
@@ -423,7 +423,7 @@
         const response = await fetch('/api/presensi/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           body: JSON.stringify(requestBody)
         });
         
@@ -559,7 +559,7 @@
         const response = await fetch('/api/presensi/manual', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           body: JSON.stringify({ 
             id_murid, 
             tanggal: today,
@@ -594,7 +594,7 @@
         const response = await fetch('/api/presensi/tutup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           body: JSON.stringify({ tanggal: today })
         });
         

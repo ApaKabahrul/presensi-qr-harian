@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -9,7 +8,8 @@ const http = require('http');
 const os = require('os');
 const { execSync } = require('child_process');
 const bcrypt = require('bcrypt');
-const { supabase, readAll, insertRow } = require('./utils/supabase');
+const cookieParser = require('cookie-parser');
+const { supabase, insertRow } = require('./utils/supabase');
 
 const authRoutes = require('./routes/auth');
 const muridRoutes = require('./routes/murid');
@@ -24,7 +24,8 @@ const presensiController = require('./controllers/presensiController');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
-const USE_HTTPS = process.env.HTTPS !== 'false'; // default: HTTPS aktif
+const USE_HTTPS = process.env.HTTPS !== 'false';
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Middleware
 app.use(cors({
@@ -33,19 +34,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
-
-// Session configuration
-app.use(session({
-  secret: 'presensi-qr-harian-secret-key-2026',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    secure: false, 
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
 
 // Routes - API
 app.use('/api/auth', authRoutes);
@@ -60,7 +50,7 @@ app.get('/', isAuthenticated, (req, res) => {
 });
 app.get('/murid', isAuthenticated, muridController.showMuridPage);
 app.get('/presensi', isAuthenticated, presensiController.showPresensiPage);
-app.get('/rekap', isAuthenticated, (req, res) => {
+app.get('/rekap', (req, res) => {
   res.sendFile('rekap.html', { root: './public' });
 });
 app.get('/logout', authController.logout);
@@ -167,25 +157,16 @@ async function start() {
       console.log('  Presensi QR Harian - HTTPS MODE');
       console.log('══════════════════════════════════════════════');
       console.log('');
-      console.log('  Access from laptop:');
-      console.log(`     https://localhost:${HTTPS_PORT}`);
+      console.log(`  https://localhost:${HTTPS_PORT}`);
       console.log('');
-      console.log('  Access from phone (same network):');
       ips.forEach(ip => {
-        console.log(`     https://${ip}:${HTTPS_PORT}`);
+        console.log(`  https://${ip}:${HTTPS_PORT}`);
       });
       console.log('');
-      console.log('  Self-signed certificate: click "Advanced"');
-      console.log('  then "Proceed" when browser shows warning.');
       console.log('══════════════════════════════════════════════');
       console.log('');
     }).on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        console.error(`  HTTPS port ${HTTPS_PORT} is already in use.`);
-        console.error(`  Run: npx kill-port ${HTTPS_PORT}`);
-      } else {
-        console.error('  HTTPS server error:', err.message);
-      }
+      console.error('HTTPS server error:', err.message);
     });
   }
 

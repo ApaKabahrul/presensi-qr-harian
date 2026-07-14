@@ -212,7 +212,7 @@
       try {
         const response = await fetch('/api/auth/check', {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const data = await response.json();
         
@@ -232,7 +232,7 @@
       try {
         const response = await fetch('/api/murid', {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const data = await response.json();
         
@@ -291,7 +291,7 @@
         
         const response = await fetch(url, {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         
         const data = await response.json();
@@ -323,7 +323,7 @@
         
         const response = await fetch(url, {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         
         const data = await response.json();

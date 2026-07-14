@@ -1,26 +1,22 @@
 const bcrypt = require('bcrypt');
 const { supabase } = require('../utils/supabase');
+const { generateToken, verifyToken } = require('../utils/jwt');
 
-/**
- * Menampilkan halaman login
- */
-async function showLoginPage(req, res) {
-  // Jika sudah login, redirect ke dashboard
-  if (req.session && req.session.guruId) {
-    return res.redirect('/');
+function showLoginPage(req, res) {
+  const token = req.cookies && req.cookies.jwt_token;
+  if (token) {
+    const decoded = verifyToken(token);
+    if (decoded) {
+      return res.redirect('/');
+    }
   }
-  
   res.sendFile('login.html', { root: './public' });
 }
 
-/**
- * Handle login
- */
 async function login(req, res) {
   try {
     const { username, password } = req.body;
     
-    // Validasi input
     if (!username || !password) {
       return res.status(400).json({
         success: false,
@@ -28,7 +24,6 @@ async function login(req, res) {
       });
     }
     
-    // Cari guru berdasarkan username (dari Supabase)
     const { data: guru, error } = await supabase
       .from('guru')
       .select('*')
@@ -42,7 +37,6 @@ async function login(req, res) {
       });
     }
     
-    // Cek password
     const passwordMatch = await bcrypt.compare(password, guru.password_hash);
     
     if (!passwordMatch) {
@@ -52,10 +46,15 @@ async function login(req, res) {
       });
     }
     
-    // Set session
-    req.session.guruId = guru.id_guru;
-    req.session.guruName = guru.nama_lengkap;
-    req.session.username = guru.username;
+    const token = generateToken(guru);
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    res.cookie('jwt_token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000
+    });
     
     res.json({
       success: true,
@@ -72,43 +71,51 @@ async function login(req, res) {
   }
 }
 
-/**
- * Handle logout
- */
 function logout(req, res) {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Error destroying session:', err);
-    }
-    res.clearCookie('connect.sid');
-    res.redirect('/login');
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  res.clearCookie('jwt_token', {
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
   });
+  
+  res.redirect('/login');
 }
 
-/**
- * Cek status login (API)
- */
+function apiLogout(req, res) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  res.clearCookie('jwt_token', {
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
+  });
+  
+  res.json({ success: true, message: 'Logout berhasil' });
+}
+
 function checkAuth(req, res) {
-  if (req.session && req.session.guruId) {
+  const token = req.cookies && req.cookies.jwt_token;
+  
+  if (!token) {
+    return res.json({ success: false, guru: null });
+  }
+  
+  const decoded = verifyToken(token);
+  
+  if (decoded) {
     return res.json({
       success: true,
-      guru: {
-        id: req.session.guruId,
-        name: req.session.guruName,
-        username: req.session.username
-      }
+      guru: decoded
     });
   }
   
-  return res.json({
-    success: false,
-    guru: null
-  });
+  return res.json({ success: false, guru: null });
 }
 
 module.exports = {
   showLoginPage,
   login,
   logout,
+  apiLogout,
   checkAuth
 };

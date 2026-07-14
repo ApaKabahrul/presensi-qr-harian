@@ -195,7 +195,7 @@
       try {
         const response = await fetch('/api/auth/check', {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const data = await response.json();
         
@@ -215,7 +215,7 @@
       try {
         const response = await fetch('/api/murid', {
           method: 'GET',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const data = await response.json();
         
@@ -284,7 +284,7 @@
         const response = await fetch('/api/murid', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           body: JSON.stringify({ nis, nama, status })
         });
         
@@ -334,7 +334,7 @@
         const response = await fetch(`/api/murid/${id_murid}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           body: JSON.stringify({ nis, nama, status })
         });
         
@@ -360,7 +360,7 @@
       try {
         const response = await fetch(`/api/murid/${id_murid}`, {
           method: 'DELETE',
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         
         const data = await response.json();
@@ -517,7 +517,7 @@
         try {
           const response = await fetch(`/api/murid/${id_murid}/upload-foto`, {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             body: formData
           });
           

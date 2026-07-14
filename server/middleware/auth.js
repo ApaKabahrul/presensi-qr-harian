@@ -1,36 +1,38 @@
-/**
- * Middleware untuk mengecek apakah user sudah login
- */
+const { verifyToken } = require('../utils/jwt');
+
 function isAuthenticated(req, res, next) {
-  if (req.session && req.session.guruId) {
-    return next();
-  }
-  
-  // Jika request adalah API (expecting JSON), return 401
-  if (req.headers.accept === 'application/json' || req.xhr) {
-    return res.status(401).json({
-      success: false,
-      message: 'Unauthorized - Silakan login terlebih dahulu'
-    });
-  }
-  
-  // Untuk request biasa, redirect ke login
-  res.redirect('/login');
-}
+  let token = null;
 
-/**
- * Middleware untuk logout
- */
-function logout(req, res) {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Error destroying session:', err);
+  if (req.cookies && req.cookies.jwt_token) {
+    token = req.cookies.jwt_token;
+  } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    if (req.headers.accept === 'application/json' || req.xhr || req.path.startsWith('/api/')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized - Silakan login terlebih dahulu'
+      });
     }
-    res.clearCookie('connect.sid');
-  });
+    return res.redirect('/login');
+  }
+
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    if (req.headers.accept === 'application/json' || req.xhr || req.path.startsWith('/api/')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token tidak valid atau kadaluarsa'
+      });
+    }
+    res.cookie('jwt_token', '', { maxAge: 1 });
+    return res.redirect('/login');
+  }
+
+  req.guru = decoded;
+  next();
 }
 
-module.exports = {
-  isAuthenticated,
-  logout
-};
+module.exports = { isAuthenticated };
