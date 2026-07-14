@@ -104,8 +104,8 @@ Saat pertama kali dijalankan, akun guru dibuat otomatis:
 
 | Field | Nilai |
 |-------|-------|
-| Username | `riris` |
-| Password | `bahrulriris` |
+| Username | `guru` |
+| Password | `guru123` |
 
 > ⚠️ **Penting:** Ubah password sesuai kebutuhan via `scripts/ubah-password-guru.js`
 

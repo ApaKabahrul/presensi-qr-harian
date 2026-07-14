@@ -16,8 +16,8 @@ const supabase = createClient(
 
 async function ubahPassword() {
   // ─── KONFIGURASI ───
-  const usernameBaru = 'riris';
-  const passwordBaru = 'bahrulriris';
+  const usernameBaru = 'guru';
+  const passwordBaru = 'guru123';
   const idGuru = 'g001'; // ID guru yang mau diubah
   // ───────────────────
 
