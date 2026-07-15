@@ -313,7 +313,7 @@ async function downloadAllQRPDF(req, res) {
     const qrDataList = [];
     for (const murid of muridAktif) {
       const dataUrl = await QRCode.toDataURL(murid.qr_token, {
-        width: 200,
+        width: 300,
         margin: 1,
         color: { dark: '#000000', light: '#ffffff' }
       });
@@ -328,58 +328,68 @@ async function downloadAllQRPDF(req, res) {
     // Create PDF (A4 portrait: 210mm x 297mm)
     const doc = new jsPDF('portrait', 'mm', 'a4');
     
+    // Layout: 2 columns × 2 rows = 4 QR per page
     const pageWidth = 210;
     const pageHeight = 297;
-    const marginX = 12;
-    const marginY = 12;
-    const colGap = 10;
-    const cellWidth = (pageWidth - 2 * marginX - colGap) / 2;  // 2 columns
-    const qrSize = 40;       // QR image size in mm
-    const labelHeight = 12;  // Space for nama + NIS text
-    const cellHeight = qrSize + labelHeight;
-    const rowGap = 8;
-    const rowsPerPage = Math.floor((pageHeight - 2 * marginY - 25) / (cellHeight + rowGap));  // 25mm reserved for header
+    const marginX = 15;
+    const marginTop = 30;   // space for header
+    const marginBottom = 10;
+    const colGap = 14;
+    const rowGap = 20;
+    const labelHeight = 14; // space for nama + NIS
     
-    let currentPage = 0;
-
+    const cols = 2;
+    const rows = 2;
+    const perPage = cols * rows;  // 4
+    
+    const cellWidth = (pageWidth - 2 * marginX - (cols - 1) * colGap) / cols;
+    const usableHeight = pageHeight - marginTop - marginBottom;
+    const cellHeight = (usableHeight - (rows - 1) * rowGap) / rows;
+    const qrSize = Math.min(cellWidth - 4, cellHeight - labelHeight - 4);  // QR sebesar mungkin dalam cell
+    
     const drawHeader= () => {
       doc.setFontSize(14);
       doc.text('QR CODE PRESENSI HARIAN', pageWidth / 2, 15, { align: 'center' });
-      doc.setFontSize(10);
-      doc.text(`Kelas: ${settings.nama_kelas || '-'}`, pageWidth / 2, 22, { align: 'center' });
-      doc.text(`Total: ${muridAktif.length} Murid`, pageWidth / 2, 28, { align: 'center' });
+      doc.setFontSize(9);
+      doc.text(`Kelas: ${settings.nama_kelas || '-'}  |  Total: ${muridAktif.length} Murid`, pageWidth / 2, 23, { align: 'center' });
     };
     
     const drawCell = (x, y, qrData) => {
+      // Center QR horizontally in the cell
+      const qrX = x + (cellWidth - qrSize) / 2;
+      
       // Draw QR image
-      doc.addImage(qrData.qrImage, 'PNG', x, y, qrSize, qrSize);
+      doc.addImage(qrData.qrImage, 'PNG', qrX, y, qrSize, qrSize);
       
       // Draw name + NIS below QR
       const textY = y + qrSize + 4;
+      doc.setFontSize(9);
+      doc.text(qrData.nama, x + cellWidth / 2, textY, { align: 'center', maxWidth: cellWidth - 2 });
       doc.setFontSize(8);
-      doc.text(qrData.nama, x + qrSize / 2, textY, { align: 'center', maxWidth: cellWidth - 2 });
-      doc.setFontSize(7);
-      doc.text(`NIS: ${qrData.nis}`, x + qrSize / 2, textY + 4, { align: 'center' });
+      doc.text(`NIS: ${qrData.nis}`, x + cellWidth / 2, textY + 5, { align: 'center' });
     };
+    
+    let currentPage = 0;
     
     drawHeader();
     
     qrDataList.forEach((qrData, index) => {
-      const col = index % 2;
-      const rowInPair = Math.floor(index / 2);
+      const pageIndex = Math.floor(index / perPage);
+      const posInPage = index % perPage;
+      const col = posInPage % cols;
+      const row = Math.floor(posInPage / cols);
       
-      // Check if we need a new page
-      if (rowInPair >= (currentPage * rowsPerPage) + rowsPerPage) {
+      // Add new page if needed
+      if (pageIndex > currentPage) {
         doc.addPage();
-        currentPage++;
+        currentPage = pageIndex;
         drawHeader();
       }
       
-      const relativeRow = rowInPair - (currentPage * rowsPerPage);
-      const baseY = marginY + 28 + relativeRow * (cellHeight + rowGap);
-      const x = col === 0 ? marginX : marginX + cellWidth + colGap;
+      const x = marginX + col * (cellWidth + colGap);
+      const y = marginTop + row * (cellHeight + rowGap);
       
-      drawCell(x, baseY, qrData);
+      drawCell(x, y, qrData);
     });
     
     // Output PDF
