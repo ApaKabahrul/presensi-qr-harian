@@ -68,6 +68,7 @@
     <div class="card">
       <div class="card-header">
         <h2>Daftar Murid</h2>
+        <button class="btn btn-sm btn-success" onclick="downloadAllQRPDF()">📥 Unduh Semua QR (PDF)</button>
         <button class="btn btn-sm btn-info" onclick="loadMuridData()">🔄 Refresh</button>
       </div>
       
@@ -443,6 +444,41 @@
         </html>
       `);
       printWindow.document.close();
+    }
+
+    // Download semua QR code sebagai PDF
+    function downloadAllQRPDF() {
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = '⏳ Membuat PDF...';
+      
+      fetch('/api/murid/qr/pdf', {
+        method: 'GET',
+        credentials: 'include'
+      })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(data => { throw new Error(data.message || 'Gagal membuat PDF'); });
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'qr_code_murid.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        btn.disabled = false;
+        btn.textContent = '📥 Unduh Semua QR (PDF)';
+      })
+      .catch(error => {
+        alert('❌ Gagal: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = '📥 Unduh Semua QR (PDF)';
+      });
     }
 
     // ========== FOTO PROFIL FUNCTIONS ==========

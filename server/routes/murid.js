@@ -34,6 +34,9 @@ router.get('/', muridController.getMurid);
 // POST /api/murid - Tambah murid baru
 router.post('/', muridController.addMurid);
 
+// GET /api/murid/qr/pdf - Download semua QR code murid dalam satu PDF
+router.get('/qr/pdf', muridController.downloadAllQRPDF);
+
 // PUT /api/murid/:id_murid - Update data murid
 router.put('/:id_murid', muridController.updateMurid);
 

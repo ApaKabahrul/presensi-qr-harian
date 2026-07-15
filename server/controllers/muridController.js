@@ -1,7 +1,9 @@
 const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs').promises;
-const { supabase, readAll, insertRow, updateRow, deleteRow, exists, generateId, generateQRToken } = require('../utils/supabase');
+const { supabase, readAll, insertRow, updateRow, deleteRow, exists, generateId, generateQRToken, readSettings } = require('../utils/supabase');
+const QRCode = require('qrcode');
+const { jsPDF } = require('jspdf');
 
 /**
  * Menampilkan halaman manajemen murid
@@ -289,6 +291,113 @@ async function uploadFotoProfil(req, res) {
   }
 }
 
+/**
+ * Download semua QR code murid dalam satu file PDF (API)
+ * Layout: 2 kolom per baris, A4 portrait, siap print
+ */
+async function downloadAllQRPDF(req, res) {
+  try {
+    const muridData = await readAll('murid');
+    const settings = await readSettings();
+    
+    const muridAktif = muridData.filter(m => m.status === 'aktif');
+    
+    if (muridAktif.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tidak ada murid aktif'
+      });
+    }
+    
+    // Generate QR data URLs for all active students
+    const qrDataList = [];
+    for (const murid of muridAktif) {
+      const dataUrl = await QRCode.toDataURL(murid.qr_token, {
+        width: 200,
+        margin: 1,
+        color: { dark: '#000000', light: '#ffffff' }
+      });
+      qrDataList.push({
+        id_murid: murid.id_murid,
+        nama: murid.nama,
+        nis: murid.nis,
+        qrImage: dataUrl
+      });
+    }
+    
+    // Create PDF (A4 portrait: 210mm x 297mm)
+    const doc = new jsPDF('portrait', 'mm', 'a4');
+    
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const marginX = 12;
+    const marginY = 12;
+    const colGap = 10;
+    const cellWidth = (pageWidth - 2 * marginX - colGap) / 2;  // 2 columns
+    const qrSize = 40;       // QR image size in mm
+    const labelHeight = 12;  // Space for nama + NIS text
+    const cellHeight = qrSize + labelHeight;
+    const rowGap = 8;
+    const rowsPerPage = Math.floor((pageHeight - 2 * marginY - 25) / (cellHeight + rowGap));  // 25mm reserved for header
+    
+    let currentPage = 0;
+
+    const drawHeader= () => {
+      doc.setFontSize(14);
+      doc.text('QR CODE PRESENSI HARIAN', pageWidth / 2, 15, { align: 'center' });
+      doc.setFontSize(10);
+      doc.text(`Kelas: ${settings.nama_kelas || '-'}`, pageWidth / 2, 22, { align: 'center' });
+      doc.text(`Total: ${muridAktif.length} Murid`, pageWidth / 2, 28, { align: 'center' });
+    };
+    
+    const drawCell = (x, y, qrData) => {
+      // Draw QR image
+      doc.addImage(qrData.qrImage, 'PNG', x, y, qrSize, qrSize);
+      
+      // Draw name + NIS below QR
+      const textY = y + qrSize + 4;
+      doc.setFontSize(8);
+      doc.text(qrData.nama, x + qrSize / 2, textY, { align: 'center', maxWidth: cellWidth - 2 });
+      doc.setFontSize(7);
+      doc.text(`NIS: ${qrData.nis}`, x + qrSize / 2, textY + 4, { align: 'center' });
+    };
+    
+    drawHeader();
+    
+    qrDataList.forEach((qrData, index) => {
+      const col = index % 2;
+      const rowInPair = Math.floor(index / 2);
+      
+      // Check if we need a new page
+      if (rowInPair >= (currentPage * rowsPerPage) + rowsPerPage) {
+        doc.addPage();
+        currentPage++;
+        drawHeader();
+      }
+      
+      const relativeRow = rowInPair - (currentPage * rowsPerPage);
+      const baseY = marginY + 28 + relativeRow * (cellHeight + rowGap);
+      const x = col === 0 ? marginX : marginX + cellWidth + colGap;
+      
+      drawCell(x, baseY, qrData);
+    });
+    
+    // Output PDF
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=qr_code_murid.pdf');
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+    
+  } catch (error) {
+    console.error('Error generating QR PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal membuat PDF QR code'
+    });
+  }
+}
+
 module.exports = {
   showMuridPage,
   getMurid,
@@ -296,5 +405,6 @@ module.exports = {
   updateMurid,
   deleteMurid,
   regenerateQRToken,
-  uploadFotoProfil
+  uploadFotoProfil,
+  downloadAllQRPDF
 };
