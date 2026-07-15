@@ -95,7 +95,7 @@ async function scanQR(req, res) {
       jam_presensi: currentTime,
       status,
       metode_presensi: 'scan-qr',
-      input_by: req.session.guruId,
+      input_by: req.guru ? req.guru.id_guru : 'unknown',
       keterangan: ''
     };
 
@@ -160,7 +160,7 @@ async function absenManual(req, res) {
       jam_presensi: status === 'Hadir' || status === 'Terlambat' ? currentTime : null,
       status,
       metode_presensi: 'manual',
-      input_by: req.session.guruId,
+      input_by: req.guru ? req.guru.id_guru : 'unknown',
       keterangan
     };
 
@@ -223,7 +223,7 @@ async function koreksiPresensi(req, res) {
       status_lama: statusLama,
       status_baru: statusBaru,
       keterangan,
-      diubah_oleh: req.session.guruId,
+      diubah_oleh: req.guru ? req.guru.id_guru : 'unknown',
       waktu_ubah: new Date().toISOString()
     };
 
@@ -349,7 +349,7 @@ async function tutupPresensi(req, res) {
       jam_presensi: null,
       status: 'Alpha',
       metode_presensi: 'auto',
-      input_by: req.session.guruId,
+      input_by: req.guru ? req.guru.id_guru : 'unknown',
       keterangan: 'Alpha otomatis - tidak hadir tanpa keterangan'
     }));
 

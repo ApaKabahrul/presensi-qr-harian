@@ -43,7 +43,7 @@ async function exportPDF(req, res) {
     doc.setFontSize(12);
     doc.text(`Kelas: ${settings.nama_kelas}`, 20, 35);
     doc.text(`Periode: ${tanggal_mulai || 'Semua'} - ${tanggal_selesai || 'Semua'}`, 20, 42);
-    doc.text(`Dicetak oleh: ${req.session.guruName}`, 20, 49);
+    doc.text(`Dicetak oleh: ${req.guru ? req.guru.nama_lengkap : 'Unknown'}`, 20, 49);
     doc.text(`Tanggal cetak: ${new Date().toLocaleDateString('id-ID')}`, 20, 56);
     
     // Prepare table data
