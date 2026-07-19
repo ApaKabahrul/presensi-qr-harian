@@ -1,5 +1,32 @@
 const { supabase, readAll, insertRow, updateRow, getPresensiWithMurid, generateId, readSettings } = require('../utils/supabase');
 
+// ─── Helper: Waktu Indonesia Barat (UTC+7) ───────────────────────────────────
+function getWIBNow() {
+  const now = new Date();
+  // Konversi ke UTC, lalu tambah offset WIB (+7 jam)
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+  return new Date(utcMs + 7 * 60 * 60 * 1000);
+}
+
+function getWIBTime() {
+  const wib = getWIBNow();
+  return `${String(wib.getHours()).padStart(2, '0')}:${String(wib.getMinutes()).padStart(2, '0')}`;
+}
+
+function getWIBDate() {
+  const wib = getWIBNow();
+  const y = wib.getFullYear();
+  const m = String(wib.getMonth() + 1).padStart(2, '0');
+  const d = String(wib.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getWIBISOString() {
+  const wib = getWIBNow();
+  return wib.toISOString().replace('Z', '+07:00');
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 /**
  * Menampilkan halaman presensi harian
  */
@@ -87,8 +114,7 @@ async function scanQR(req, res) {
       });
     }
     
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const currentTime = getWIBTime();
     
     let status = 'Hadir';
     if (currentTime > settings.batas_terlambat) {
@@ -163,8 +189,7 @@ async function absenManual(req, res) {
       });
     }
     
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const currentTime = getWIBTime();
     
     const newPresensi = {
       id_presensi: await generateId('p', 'presensi_harian', 'id_presensi'),
@@ -237,7 +262,7 @@ async function koreksiPresensi(req, res) {
       status_baru: statusBaru,
       keterangan,
       diubah_oleh: req.guru ? req.guru.id_guru : 'unknown',
-      waktu_ubah: new Date().toISOString()
+      waktu_ubah: getWIBISOString()
     };
 
     await insertRow('log_koreksi_presensi', newLog);
