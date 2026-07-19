@@ -4,6 +4,8 @@ const fs = require('fs').promises;
 const { supabase, readAll, insertRow, updateRow, deleteRow, exists, generateId, generateQRToken, readSettings } = require('../utils/supabase');
 const QRCode = require('qrcode');
 const { jsPDF } = require('jspdf');
+const archiver = require('archiver');
+const { createCanvas, loadImage } = require('canvas');
 
 /**
  * Menampilkan halaman manajemen murid
@@ -408,6 +410,127 @@ async function downloadAllQRPDF(req, res) {
   }
 }
 
+/**
+ * Mendownload semua QR code murid sebagai ZIP berisi file PNG individual
+ */
+async function downloadAllQRZIP(req, res) {
+  try {
+    const muridData = await readAll('murid');
+    const settings = await readSettings();
+    
+    const muridAktif = muridData.filter(m => m.status === 'aktif');
+    
+    if (muridAktif.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tidak ada murid aktif'
+      });
+    }
+    
+    // Setup ZIP response
+    res.setHeader('Content-Type', 'application/zip');
+    const zipFilename = `qr_code_murid_${settings.nama_kelas || 'kelas'}.zip`;
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+    
+    const archive = archiver('zip', {
+      zlib: { level: 9 }
+    });
+    
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Gagal membuat ZIP file'
+        });
+      }
+    });
+    
+    archive.pipe(res);
+    
+    // Generate QR PNG for each student (with name label below) and add to ZIP
+    for (const murid of muridAktif) {
+      try {
+        // Generate QR code as data URL first, then load as image
+        const qrDataUrl = await QRCode.toDataURL(murid.qr_token, {
+          width: 300,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+        
+        const qrImage = await loadImage(qrDataUrl);
+        const qrSize = qrImage.width;
+        
+        // Canvas: QR + label area below
+        const labelHeight = 50;
+        const padding = 20;
+        const canvasWidth = qrSize + padding * 2;
+        const canvasHeight = qrSize + labelHeight + padding * 2;
+        
+        const canvas = createCanvas(canvasWidth, canvasHeight);
+        const ctx = canvas.getContext('2d');
+        
+        // White background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Draw QR code centered
+        ctx.drawImage(qrImage, padding, padding, qrSize, qrSize);
+        
+        // Draw student name
+        ctx.fillStyle = '#000000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Name (bold, larger)
+        ctx.font = 'bold 16px Arial, sans-serif';
+        ctx.fillText(murid.nama, canvasWidth / 2, padding + qrSize + 18);
+        
+        // NIS (smaller)
+        ctx.font = '13px Arial, sans-serif';
+        ctx.fillStyle = '#555555';
+        ctx.fillText(`NIS: ${murid.nis}`, canvasWidth / 2, padding + qrSize + 38);
+        
+        // Export canvas to PNG buffer
+        const pngBuffer = canvas.toBuffer('image/png');
+        
+        // Sanitize filename
+        const safeName = murid.nama.replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        const pngFilename = `${murid.nis}-${safeName}.png`;
+        
+        const archived = archive.append(pngBuffer, { name: pngFilename });
+        if (!archived) {
+          throw new Error(`Failed to add ${pngFilename} to archive`);
+        }
+      } catch (qrError) {
+        console.error(`Error generating QR for ${murid.nama}:`, qrError);
+        throw qrError;
+      }
+    }
+    
+    // Add README.txt with class info
+    const readmeContent = muridAktif.map(m => `${m.nis} - ${m.nama}`).join('\n');
+    const readme = `QR Code Presensi Harian\nKelas: ${settings.nama_kelas || '-'}\nTotal: ${muridAktif.length} murid\n\nDaftar murid:\n${readmeContent}`;
+    archive.append(readme, { name: 'README.txt' });
+    
+    // Wait for archive to be finalized using event-based approach
+    await new Promise((resolve, reject) => {
+      archive.finalize();
+      archive.on('end', resolve);
+      archive.on('error', reject);
+    });
+    
+  } catch (error) {
+    console.error('Error generating QR ZIP:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Gagal membuat ZIP QR code'
+      });
+    }
+  }
+}
+
 module.exports = {
   showMuridPage,
   getMurid,
@@ -416,5 +539,6 @@ module.exports = {
   deleteMurid,
   regenerateQRToken,
   uploadFotoProfil,
-  downloadAllQRPDF
+  downloadAllQRPDF,
+  downloadAllQRZIP
 };

@@ -18,7 +18,9 @@
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.110.5",
+    "archiver": "^5.3.2",
     "bcrypt": "^5.1.1",
+    "canvas": "^3.2.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
@@ -37,5 +39,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
+  },
+  "allowScripts": {
+    "canvas@3.2.3": true
   }
 }

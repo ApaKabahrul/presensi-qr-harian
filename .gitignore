@@ -8,6 +8,9 @@ package-lock.json
 # Data files (JSON storage - sudah di Supabase)
 data/*.json
 data/*.lock
+data/*.jpeg
+data/*.png
+data/*.html
 
 # SSL certificates (auto-generated)
 certs/

@@ -69,6 +69,7 @@
       <div class="card-header">
         <h2>Daftar Murid</h2>
         <button class="btn btn-sm btn-success" onclick="downloadAllQRPDF()">📥 Unduh Semua QR (PDF)</button>
+        <button class="btn btn-sm btn-success" onclick="downloadAllQRZIP()">📦 Unduh Semua QR (ZIP)</button>
         <button class="btn btn-sm btn-info" onclick="loadMuridData()">🔄 Refresh</button>
       </div>
       
@@ -478,6 +479,41 @@
         alert('❌ Gagal: ' + error.message);
         btn.disabled = false;
         btn.textContent = '📥 Unduh Semua QR (PDF)';
+      });
+    }
+
+    // Download semua QR code sebagai ZIP (PNG individual)
+    function downloadAllQRZIP() {
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = '⏳ Membuat ZIP...';
+      
+      fetch('/api/murid/qr/zip', {
+        method: 'GET',
+        credentials: 'include'
+      })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(data => { throw new Error(data.message || 'Gagal membuat ZIP'); });
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'qr_code_murid.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        btn.disabled = false;
+        btn.textContent = '📦 Unduh Semua QR (ZIP)';
+      })
+      .catch(error => {
+        alert('❌ Gagal: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = '📦 Unduh Semua QR (ZIP)';
       });
     }
 
