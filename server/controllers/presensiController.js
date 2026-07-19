@@ -51,7 +51,6 @@ async function scanQR(req, res) {
     }
     
     const muridData = await readAll('murid');
-    let presensiData = await readAll('presensi_harian');
     const settings = await readSettings();
     
     const murid = muridData.find(m => m.qr_token === token);
@@ -70,8 +69,16 @@ async function scanQR(req, res) {
       });
     }
     
-    const sudahPresensi = presensiData.find(p => p.tanggal === tanggal && p.id_murid === murid.id_murid);
-    
+    // Cek duplikat langsung dari Supabase — lebih akurat & tidak kena limit 1000 rows
+    const { data: sudahPresensi, error: checkErr } = await supabase
+      .from('presensi_harian')
+      .select('id_presensi, status')
+      .eq('tanggal', tanggal)
+      .eq('id_murid', murid.id_murid)
+      .maybeSingle();
+
+    if (checkErr) throw checkErr;
+
     if (sudahPresensi) {
       return res.status(400).json({
         success: false,
@@ -139,10 +146,16 @@ async function absenManual(req, res) {
       });
     }
     
-    let presensiData = await readAll('presensi_harian');
-    
-    const sudahPresensi = presensiData.find(p => p.tanggal === tanggal && p.id_murid === id_murid);
-    
+    // Cek duplikat langsung dari Supabase
+    const { data: sudahPresensi, error: checkErr } = await supabase
+      .from('presensi_harian')
+      .select('id_presensi, status')
+      .eq('tanggal', tanggal)
+      .eq('id_murid', id_murid)
+      .maybeSingle();
+
+    if (checkErr) throw checkErr;
+
     if (sudahPresensi) {
       return res.status(400).json({
         success: false,

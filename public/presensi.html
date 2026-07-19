@@ -208,7 +208,18 @@
     let html5QrcodeScanner = null;
     let muridData = [];
     let presensiData = [];
-    const today = new Date().toISOString().split('T')[0];
+
+    // Gunakan tanggal lokal (bukan UTC) agar tidak bergeser di timezone UTC+7
+    function getTodayLocal() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Jangan pakai const — hitung ulang setiap kali pakai agar tetap akurat setelah tengah malam
+    let today = getTodayLocal();
 
     // Load user info
     async function loadUserInfo() {
@@ -412,6 +423,8 @@
 
     // QR scan success callback
     async function onScanSuccess(decodedText) {
+      // Refresh today setiap scan agar akurat jika halaman tidak di-reload setelah tengah malam
+      today = getTodayLocal();
       console.log('✅ QR Scanned Successfully!');
       console.log('Token detected:', decodedText);
       console.log('Date:', today);
@@ -572,6 +585,7 @@
     // Manual absen
     document.getElementById('manualAbsenForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      today = getTodayLocal(); // refresh agar akurat
       
       const id_murid = document.getElementById('manualMurid').value;
       const status = document.getElementById('manualStatus').value;
@@ -611,6 +625,7 @@
       if (!confirm('Apakah Anda yakin ingin menutup presensi hari ini? Murid yang belum tercatat akan mendapat status Alpha.')) {
         return;
       }
+      today = getTodayLocal(); // refresh agar akurat
       
       try {
         const response = await fetch('/api/presensi/tutup', {
