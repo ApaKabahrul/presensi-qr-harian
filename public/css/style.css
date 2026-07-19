@@ -260,7 +260,9 @@ body {
 }
 
 .navbar-nav a.active {
-  background: var(--pink-lighter);`n  color: var(--ink);`n  box-shadow: 0 4px 8px rgba(232, 67, 147, 0.2);
+  background: var(--pink-lighter);
+  color: var(--ink);
+  box-shadow: 0 4px 8px rgba(232, 67, 147, 0.2);
 }
 
 .navbar-user {
