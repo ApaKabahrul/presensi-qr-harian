@@ -378,6 +378,139 @@ async function tutupPresensi(req, res) {
   }
 }
 
+/**
+ * Mendapatkan rekap bulanan per murid (API)
+ * GET /api/presensi/rekap-bulanan?bulan=07&tahun=2026
+ */
+async function getRekapBulanan(req, res) {
+  try {
+    const { bulan, tahun } = req.query;
+
+    if (!bulan || !tahun) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parameter bulan dan tahun wajib diisi'
+      });
+    }
+
+    const bulanStr = String(bulan).padStart(2, '0');
+    const tahunStr = String(tahun);
+
+    const tanggalMulai = `${tahunStr}-${bulanStr}-01`;
+    const lastDay = new Date(parseInt(tahunStr), parseInt(bulanStr), 0).getDate();
+    const tanggalSelesai = `${tahunStr}-${bulanStr}-${String(lastDay).padStart(2, '0')}`;
+
+    // Daftar semua tanggal dalam bulan
+    const semuaTanggal = [];
+    for (let d = 1; d <= lastDay; d++) {
+      semuaTanggal.push(`${tahunStr}-${bulanStr}-${String(d).padStart(2, '0')}`);
+    }
+
+    // Ambil semua presensi dalam rentang bulan
+    const { data: presensiBulan, error } = await supabase
+      .from('presensi_harian')
+      .select('*')
+      .gte('tanggal', tanggalMulai)
+      .lte('tanggal', tanggalSelesai);
+
+    if (error) throw error;
+
+    // Ambil semua murid aktif
+    const { data: muridAktif, error: muridErr } = await supabase
+      .from('murid')
+      .select('*')
+      .eq('status', 'aktif')
+      .order('nis', { ascending: true });
+
+    if (muridErr) throw muridErr;
+
+    // Hitung jumlah hari efektif
+    const hariEfektifSet = new Set();
+    (presensiBulan || []).forEach(p => hariEfektifSet.add(p.tanggal));
+    const jumlahHariEfektif = hariEfektifSet.size;
+
+    // Build map: id_murid -> { tanggal -> status }
+    const presensiMap = {};
+    (presensiBulan || []).forEach(p => {
+      if (!presensiMap[p.id_murid]) {
+        presensiMap[p.id_murid] = {};
+      }
+      presensiMap[p.id_murid][p.tanggal] = p.status;
+    });
+
+    // Buat rekap per murid dengan kolom harian
+    const rekapData = (muridAktif || []).map(murid => {
+      const harian = {};
+      const counts = { Hadir: 0, Terlambat: 0, Izin: 0, Sakit: 0, Alpha: 0 };
+
+      semuaTanggal.forEach(tgl => {
+        const status = (presensiMap[murid.id_murid] && presensiMap[murid.id_murid][tgl]) || null;
+        harian[tgl] = status;
+        if (status && counts[status] !== undefined) {
+          counts[status]++;
+        }
+      });
+
+      const totalHadir = counts.Hadir + counts.Terlambat;
+      const persentase = jumlahHariEfektif > 0
+        ? Math.round((totalHadir / jumlahHariEfektif) * 100)
+        : 0;
+
+      return {
+        id_murid: murid.id_murid,
+        nis: murid.nis,
+        nama: murid.nama,
+        foto_profil: murid.foto_profil || null,
+        harian,
+        hadir: counts.Hadir,
+        terlambat: counts.Terlambat,
+        izin: counts.Izin,
+        sakit: counts.Sakit,
+        alpha: counts.Alpha,
+        total_hadir: totalHadir,
+        persentase: Math.min(persentase, 100)
+      };
+    });
+
+    // Ringkasan statistik
+    let totalHadir = 0, totalTerlambat = 0, totalIzin = 0, totalSakit = 0, totalAlpha = 0;
+    rekapData.forEach(r => {
+      totalHadir += r.hadir;
+      totalTerlambat += r.terlambat;
+      totalIzin += r.izin;
+      totalSakit += r.sakit;
+      totalAlpha += r.alpha;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        bulan: bulanStr,
+        tahun: tahunStr,
+        last_day: lastDay,
+        semua_tanggal: semuaTanggal,
+        jumlah_hari_efektif: jumlahHariEfektif,
+        jumlah_murid: muridAktif.length,
+        statistik: {
+          hadir: totalHadir,
+          terlambat: totalTerlambat,
+          izin: totalIzin,
+          sakit: totalSakit,
+          alpha: totalAlpha
+        },
+        rekap: rekapData
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting rekap bulanan:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil rekap bulanan'
+    });
+  }
+}
+
 module.exports = {
   showPresensiPage,
   getPresensiByDate,
@@ -386,5 +519,6 @@ module.exports = {
   koreksiPresensi,
   getRekap,
   getStatistik,
-  tutupPresensi
+  tutupPresensi,
+  getRekapBulanan
 };

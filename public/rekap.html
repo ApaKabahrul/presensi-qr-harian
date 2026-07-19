@@ -61,6 +61,161 @@
     .stat-izin h3 { color: var(--blue); }
     .stat-sakit h3 { color: var(--purple); }
     .stat-alpha h3 { color: var(--coral); }
+
+    /* Tabs */
+    .tab-nav {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .tab-btn {
+      padding: 0.75rem 1.5rem;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--ink-faint);
+      transition: all 0.2s;
+      margin-bottom: -2px;
+    }
+
+    .tab-btn:hover {
+      color: var(--ink);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Bulanan: per murid table */
+    .bulanan-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .bulanan-info {
+      font-size: 14px;
+      color: var(--ink-faint);
+    }
+
+    .bulanan-info strong {
+      color: var(--ink);
+    }
+
+    .persentase-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .persentase-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .persentase-fill.baik { background: var(--accent); }
+    .persentase-fill.cukup { background: var(--amber); }
+    .persentase-fill.kurang { background: var(--coral); }
+
+    /* Tabel bulanan - sticky first columns */
+    .table-container-bulanan {
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    .table-bulanan {
+      border-collapse: collapse;
+      width: auto;
+      min-width: 100%;
+      font-size: 13px;
+    }
+
+    .table-bulanan th, .table-bulanan td {
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .table-bulanan th {
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      font-size: 11px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .table-bulanan td:first-child,
+    .table-bulanan th:first-child {
+      position: sticky;
+      left: 0;
+      background: var(--white);
+      z-index: 1;
+      min-width: 40px;
+    }
+
+    .table-bulanan th:first-child {
+      background: var(--accent);
+      z-index: 3;
+    }
+
+    .table-bulanan td:nth-child(2),
+    .table-bulanan th:nth-child(2) {
+      position: sticky;
+      left: 40px;
+      background: var(--white);
+      z-index: 1;
+      min-width: 50px;
+    }
+
+    .table-bulanan th:nth-child(2) {
+      background: var(--accent);
+      z-index: 3;
+    }
+
+    .table-bulanan td:nth-child(3),
+    .table-bulanan th:nth-child(3) {
+      position: sticky;
+      left: 90px;
+      background: var(--white);
+      z-index: 1;
+      min-width: 140px;
+    }
+
+    .table-bulanan th:nth-child(3) {
+      background: var(--accent);
+      z-index: 3;
+    }
+
+    .cell-h { background: #d4edda; color: #0d5c46; font-weight: 600; }
+    .cell-t { background: #fff3cd; color: #856404; font-weight: 600; }
+    .cell-i { background: #d1ecf1; color: #00537f; font-weight: 600; }
+    .cell-s { background: #e6d7ff; color: #5b21b6; font-weight: 600; }
+    .cell-a { background: #fdd; color: #b41e1e; font-weight: 600; }
+    .cell-empty { color: var(--ink-faint); }
   </style>
 </head>
 <body>
@@ -89,6 +244,15 @@
       <h1>Rekap Presensi</h1>
       <p>Lihat dan export laporan presensi murid</p>
     </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('harian')">📋 Rekap Harian</button>
+      <button class="tab-btn" onclick="switchTab('bulanan')">📅 Rekap Bulanan</button>
+    </div>
+
+    <!-- ==================== TAB: HARIAN ==================== -->
+    <div id="tabHarian" class="tab-content active">
 
     <!-- Filter Card -->
     <div class="card">
@@ -197,6 +361,118 @@
         </table>
       </div>
     </div>
+    </div><!-- end tabHarian -->
+
+    <!-- ==================== TAB: BULANAN ==================== -->
+    <div id="tabBulanan" class="tab-content">
+      <!-- Filter Bulanan -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Filter Bulan</h2>
+        </div>
+        
+        <form id="filterBulananForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bulanSelect">Bulan</label>
+              <select id="bulanSelect" name="bulan">
+                <option value="01">Januari</option>
+                <option value="02">Februari</option>
+                <option value="03">Maret</option>
+                <option value="04">April</option>
+                <option value="05">Mei</option>
+                <option value="06">Juni</option>
+                <option value="07" selected>Juli</option>
+                <option value="08">Agustus</option>
+                <option value="09">September</option>
+                <option value="10">Oktober</option>
+                <option value="11">November</option>
+                <option value="12">Desember</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="tahunSelect">Tahun</label>
+              <select id="tahunSelect" name="tahun"></select>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 0.75rem;">
+            <button type="submit" class="btn btn-success">🔍 Tampilkan</button>
+            <button type="button" class="btn btn-info" onclick="exportPDFBulanan()">📄 Export PDF</button>
+            <button type="button" class="btn btn-info" onclick="exportExcelBulanan()">📊 Export Excel</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Info Bulanan -->
+      <div id="bulananInfoCard" class="card" style="display: none;">
+        <div class="bulanan-header">
+          <div class="bulanan-info">
+            Bulan: <strong id="bulananLabel">-</strong> &nbsp;|&nbsp;
+            Hari Efektif: <strong id="bulananHariEfektif">0</strong> &nbsp;|&nbsp;
+            Murid: <strong id="bulananJumlahMurid">0</strong>
+          </div>
+        </div>
+        
+        <!-- Statistik Bulanan -->
+        <div class="stats-grid" style="margin-bottom: 1rem;">
+          <div class="stat-card stat-hadir">
+            <h3 id="bStatHadir">0</h3>
+            <p>Hadir</p>
+          </div>
+          <div class="stat-card stat-terlambat">
+            <h3 id="bStatTerlambat">0</h3>
+            <p>Terlambat</p>
+          </div>
+          <div class="stat-card stat-izin">
+            <h3 id="bStatIzin">0</h3>
+            <p>Izin</p>
+          </div>
+          <div class="stat-card stat-sakit">
+            <h3 id="bStatSakit">0</h3>
+            <p>Sakit</p>
+          </div>
+          <div class="stat-card stat-alpha">
+            <h3 id="bStatAlpha">0</h3>
+            <p>Alpha</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabel Rekap Bulanan -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Rekap per Murid</h2>
+          <span id="bulananTotalRecords" style="font-size: 13px; color: var(--ink-faint);"></span>
+        </div>
+        
+        <div class="table-container-bulanan" id="bulananTableContainer">
+          <table class="table-bulanan" id="bulananTable">
+            <thead id="bulananTableHead">
+              <tr>
+                <th>No</th>
+                <th>NIS</th>
+                <th>Nama</th>
+                <!-- kolom tanggal akan di-generate dinamis -->
+                <th>H</th>
+                <th>T</th>
+                <th>I</th>
+                <th>S</th>
+                <th>A</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="bulananTableBody">
+              <tr>
+                <td colspan="12" style="text-align: center; padding: 2rem;">Silakan pilih bulan dan tahun untuk melihat rekap</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- end tabBulanan -->
+
   </main>
 
   <!-- jQuery and Select2 JS -->
@@ -417,16 +693,198 @@
       window.location.href = `/api/export/pdf?${params}`;
     }
 
-    // Export Excel
+    // Export Excel (harian)
     function exportExcel() {
       const params = new URLSearchParams(currentFilter);
       window.location.href = `/api/export/excel?${params}`;
     }
 
+    // ==================== BULANAN FUNCTIONS ====================
+
+    let currentBulananFilter = { bulan: '07', tahun: '2026' };
+
+    // Switch tab
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      if (tab === 'harian') {
+        document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+        document.getElementById('tabHarian').classList.add('active');
+      } else {
+        document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+        document.getElementById('tabBulanan').classList.add('active');
+        // Auto-load if not yet loaded
+        loadRekapBulanan();
+      }
+    }
+
+    // Init tahun select
+    function initTahunSelect() {
+      const tahunSelect = document.getElementById('tahunSelect');
+      const currentYear = new Date().getFullYear();
+      tahunSelect.innerHTML = '';
+      for (let y = currentYear; y >= currentYear - 5; y--) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        if (y === currentYear) option.selected = true;
+        tahunSelect.appendChild(option);
+      }
+      
+      // Set bulan ke bulan sekarang
+      const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+      document.getElementById('bulanSelect').value = currentMonth;
+      currentBulananFilter.bulan = currentMonth;
+      currentBulananFilter.tahun = String(currentYear);
+    }
+
+    // Load rekap bulanan
+    async function loadRekapBulanan() {
+      try {
+        const params = new URLSearchParams({
+          bulan: currentBulananFilter.bulan,
+          tahun: currentBulananFilter.tahun
+        });
+
+        const response = await fetch(`/api/presensi/rekap-bulanan?${params}`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          renderBulanan(data.data);
+        } else {
+          console.error('Rekap bulanan failed:', data.message);
+        }
+      } catch (error) {
+        console.error('Error loading rekap bulanan:', error);
+      }
+    }
+
+    // Render bulanan
+    function renderBulanan(data) {
+      const namaBulan = new Date(parseInt(data.tahun), parseInt(data.bulan) - 1, 1)
+        .toLocaleDateString('id-ID', { month: 'long' });
+
+      // Info
+      document.getElementById('bulananLabel').textContent = `${namaBulan} ${data.tahun}`;
+      document.getElementById('bulananHariEfektif').textContent = data.jumlah_hari_efektif;
+      document.getElementById('bulananJumlahMurid').textContent = data.jumlah_murid;
+      document.getElementById('bulananInfoCard').style.display = 'block';
+
+      // Statistik
+      document.getElementById('bStatHadir').textContent = data.statistik.hadir;
+      document.getElementById('bStatTerlambat').textContent = data.statistik.terlambat;
+      document.getElementById('bStatIzin').textContent = data.statistik.izin;
+      document.getElementById('bStatSakit').textContent = data.statistik.sakit;
+      document.getElementById('bStatAlpha').textContent = data.statistik.alpha;
+
+      // Generate header dinamis
+      const headRow = document.querySelector('#bulananTableHead tr');
+      headRow.innerHTML = '<th>No</th><th>NIS</th><th>Nama</th>';
+      data.semua_tanggal.forEach(tgl => {
+        const day = parseInt(tgl.split('-')[2]);
+        headRow.innerHTML += `<th>${day}</th>`;
+      });
+      headRow.innerHTML += '<th>H</th><th>T</th><th>I</th><th>S</th><th>A</th><th>%</th>';
+
+      // Tabel body
+      const tbody = document.getElementById('bulananTableBody');
+      document.getElementById('bulananTotalRecords').textContent = `${data.rekap.length} murid`;
+
+      if (data.rekap.length === 0) {
+        const totalCols = 3 + data.semua_tanggal.length + 6;
+        tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align: center; padding: 2rem;">Belum ada data presensi untuk bulan ini</td></tr>`;
+        return;
+      }
+
+      // Update sticky left offsets dinamis
+      updateStickyOffsets();
+
+      tbody.innerHTML = data.rekap.map((r, index) => {
+        let row = `<tr>`;
+        row += `<td>${index + 1}</td>`;
+        row += `<td>${r.nis}</td>`;
+        row += `<td style="text-align: left;">${r.nama}</td>`;
+
+        // Kolom per tanggal
+        data.semua_tanggal.forEach(tgl => {
+          const status = r.harian[tgl];
+          if (!status) {
+            row += `<td class="cell-empty">-</td>`;
+          } else {
+            const abbr = status === 'Hadir' ? 'H' : status === 'Terlambat' ? 'T' : status === 'Izin' ? 'I' : status === 'Sakit' ? 'S' : 'A';
+            const cls = status === 'Hadir' ? 'cell-h' : status === 'Terlambat' ? 'cell-t' : status === 'Izin' ? 'cell-i' : status === 'Sakit' ? 'cell-s' : 'cell-a';
+            row += `<td class="${cls}" title="${status}">${abbr}</td>`;
+          }
+        });
+
+        // Summary
+        const persenClass = r.persentase >= 80 ? 'baik' : r.persentase >= 60 ? 'cukup' : 'kurang';
+        row += `<td>${r.hadir}</td>`;
+        row += `<td>${r.terlambat}</td>`;
+        row += `<td>${r.izin}</td>`;
+        row += `<td>${r.sakit}</td>`;
+        row += `<td>${r.alpha}</td>`;
+        row += `<td>
+          <div style="display: flex; align-items: center; gap: 4px; min-width: 70px;">
+            <span style="font-weight: 600; font-size: 12px;">${r.persentase}%</span>
+            <div style="flex: 1; min-width: 30px;">
+              <div class="persentase-bar">
+                <div class="persentase-fill ${persenClass}" style="width: ${r.persentase}%;"></div>
+              </div>
+            </div>
+          </div>
+        </td>`;
+        row += `</tr>`;
+        return row;
+      }).join('');
+    }
+
+    // Update sticky offsets for pinned columns (No, NIS, Nama)
+    function updateStickyOffsets() {
+      // This is handled by CSS. But if needed, we can measure the actual widths.
+      // For now, the CSS sticky left values are hardcoded based on approximate widths.
+    }
+
+    // Helper: get murid foto by id
+    function getMuridFotoById(id_murid, foto_profil) {
+      if (foto_profil) {
+        return `<img src="${foto_profil}?t=${Date.now()}" alt="foto" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.parentElement.innerHTML='👤'">`;
+      }
+      return '👤';
+    }
+
+    // Export PDF bulanan
+    function exportPDFBulanan() {
+      const params = new URLSearchParams(currentBulananFilter);
+      window.location.href = `/api/export/pdf-bulanan?${params}`;
+    }
+
+    // Export Excel bulanan
+    function exportExcelBulanan() {
+      const params = new URLSearchParams(currentBulananFilter);
+      window.location.href = `/api/export/excel-bulanan?${params}`;
+    }
+
+    // Filter bulanan form submit
+    document.getElementById('filterBulananForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      currentBulananFilter = {
+        bulan: document.getElementById('bulanSelect').value,
+        tahun: document.getElementById('tahunSelect').value
+      };
+      loadRekapBulanan();
+    });
+
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       loadUserInfo();
       loadMuridData();
+      initTahunSelect();
     });
   </script>
 </body>

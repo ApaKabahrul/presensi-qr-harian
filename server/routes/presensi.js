@@ -5,6 +5,9 @@ const presensiController = require('../controllers/presensiController');
 // GET /api/presensi/rekap - Dapatkan rekap presensi (MUST be before /:tanggal)
 router.get('/rekap', presensiController.getRekap);
 
+// GET /api/presensi/rekap-bulanan - Dapatkan rekap bulanan per murid (MUST be before /:tanggal)
+router.get('/rekap-bulanan', presensiController.getRekapBulanan);
+
 // GET /api/presensi/statistik - Dapatkan statistik presensi (MUST be before /:tanggal)
 router.get('/statistik', presensiController.getStatistik);
 
