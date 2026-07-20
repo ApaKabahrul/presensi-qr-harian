@@ -41,17 +41,26 @@ async function getPresensiByDate(req, res) {
   try {
     const { tanggal } = req.params;
 
+    // JOIN presensi + murid agar NIS dan Nama langsung tersedia
     const { data: presensiTanggal, error } = await supabase
       .from('presensi_harian')
-      .select('*')
+      .select('*, murid(nis, nama)')
       .eq('tanggal', tanggal)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
 
+    // Flatten hasil join
+    const result = (presensiTanggal || []).map(row => ({
+      ...row,
+      nis: row.murid?.nis || null,
+      nama: row.murid?.nama || null,
+      murid: undefined
+    }));
+
     res.json({
       success: true,
-      data: presensiTanggal
+      data: result
     });
     
   } catch (error) {

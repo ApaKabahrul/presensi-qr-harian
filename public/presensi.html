@@ -300,19 +300,24 @@
       }
       
       tbody.innerHTML = presensiData.map((p, index) => {
-        const murid = muridData.find(m => m.id_murid === p.id_murid);
         const badgeClass = `badge-${p.status.toLowerCase()}`;
+
+        // Prioritaskan data dari API (hasil JOIN), fallback ke muridData
+        const murid = muridData.find(m => m.id_murid === p.id_murid);
+        const nis = p.nis || (murid ? murid.nis : '-');
+        const nama = p.nama || (murid ? murid.nama : '-');
+        const foto = (murid && murid.foto_profil) ? murid.foto_profil : null;
         
-        const fotoHtml = murid && murid.foto_profil 
-          ? `<img src="${murid.foto_profil}?t=${Date.now()}" alt="${murid.nama}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23ddd%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 font-size=%2240%22 fill=%22%23999%22>👤</text></svg>'">`
+        const fotoHtml = foto
+          ? `<img src="${foto}?t=${Date.now()}" alt="${nama}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23ddd%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 font-size=%2240%22 fill=%22%23999%22>👤</text></svg>'">`
           : `<div style="width: 35px; height: 35px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px;">👤</div>`;
         
         return `
           <tr>
             <td>${index + 1}</td>
             <td>${fotoHtml}</td>
-            <td>${murid ? murid.nis : '-'}</td>
-            <td>${murid ? murid.nama : '-'}</td>
+            <td>${nis}</td>
+            <td>${nama}</td>
             <td>${p.jam_presensi || '-'}</td>
             <td><span class="badge ${badgeClass}">${p.status}</span></td>
             <td>${p.metode_presensi}</td>
