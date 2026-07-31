@@ -4,7 +4,10 @@ const { supabase, readMuridByGuru, readAll, insertRow, updateRow, deleteRow, exi
 const QRCode = require('qrcode');
 const { jsPDF } = require('jspdf');
 const archiver = require('archiver');
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage, registerFont } = require('canvas');
+
+const fontPath = path.join(__dirname, '../../fonts/NotoSans-Regular.ttf');
+registerFont(fontPath, { family: 'Noto Sans' });
 
 /**
  * Menampilkan halaman manajemen murid
@@ -482,11 +485,11 @@ async function downloadAllQRZIP(req, res) {
         ctx.textBaseline = 'middle';
         
         // Name (bold, larger)
-        ctx.font = 'bold 16px Arial, sans-serif';
+        ctx.font = 'bold 16px "Noto Sans"';
         ctx.fillText(murid.nama, canvasWidth / 2, padding + qrSize + 18);
         
         // NIS (smaller)
-        ctx.font = '13px Arial, sans-serif';
+        ctx.font = '13px "Noto Sans"';
         ctx.fillStyle = '#555555';
         ctx.fillText(`NIS: ${murid.nis}`, canvasWidth / 2, padding + qrSize + 38);
         
