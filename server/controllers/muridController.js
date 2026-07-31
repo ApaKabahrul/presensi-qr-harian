@@ -1,7 +1,6 @@
-const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs').promises;
-const { supabase, readAll, insertRow, updateRow, deleteRow, exists, generateId, generateQRToken, readSettings } = require('../utils/supabase');
+const { supabase, readMuridByGuru, readAll, insertRow, updateRow, deleteRow, exists, generateId, generateQRToken, readSettings } = require('../utils/supabase');
 const QRCode = require('qrcode');
 const { jsPDF } = require('jspdf');
 const archiver = require('archiver');
@@ -19,7 +18,7 @@ async function showMuridPage(req, res) {
  */
 async function getMurid(req, res) {
   try {
-    const muridData = await readAll('murid');
+    const muridData = await readMuridByGuru(req.guru.id_guru);
     res.json({
       success: true,
       data: muridData
@@ -48,7 +47,7 @@ async function addMurid(req, res) {
       });
     }
     
-    // Cek apakah NIS sudah ada (di Supabase)
+    // Cek apakah NIS sudah ada untuk guru ini atau murid lain di seluruh sistem
     const nisExists = await exists('murid', 'nis', nis);
     if (nisExists) {
       return res.status(400).json({
@@ -61,14 +60,15 @@ async function addMurid(req, res) {
     const id_murid = await generateId('m', 'murid', 'id_murid');
     const qr_token = generateQRToken();
     
-    // Buat data murid baru
+    // Buat data murid baru dengan id_guru saat ini
     const newMurid = {
       id_murid,
       nis,
       nama,
       qr_token,
       status: status || 'aktif',
-      foto_profil: null
+      foto_profil: null,
+      id_guru: req.guru.id_guru
     };
     
     // Simpan ke Supabase
@@ -105,17 +105,18 @@ async function updateMurid(req, res) {
       });
     }
     
-    // Cek apakah murid ada
-    const murid = await supabase
+    // Cek apakah murid ada dan milik guru saat ini
+    const { data: murid, error: muridErr } = await supabase
       .from('murid')
       .select('*')
       .eq('id_murid', id_murid)
+      .eq('id_guru', req.guru.id_guru)
       .maybeSingle();
 
-    if (murid.error || !murid.data) {
+    if (muridErr || !murid) {
       return res.status(404).json({
         success: false,
-        message: 'Murid tidak ditemukan'
+        message: 'Murid tidak ditemukan atau tidak milik Anda'
       });
     }
     
@@ -157,17 +158,18 @@ async function deleteMurid(req, res) {
   try {
     const { id_murid } = req.params;
     
-    // Cek apakah murid ada
+    // Cek apakah murid ada dan milik guru saat ini
     const { data: murid, error: checkErr } = await supabase
       .from('murid')
       .select('id_murid')
       .eq('id_murid', id_murid)
+      .eq('id_guru', req.guru.id_guru)
       .maybeSingle();
 
     if (checkErr || !murid) {
       return res.status(404).json({
         success: false,
-        message: 'Murid tidak ditemukan'
+        message: 'Murid tidak ditemukan atau tidak milik Anda'
       });
     }
     
@@ -196,17 +198,18 @@ async function regenerateQRToken(req, res) {
   try {
     const { id_murid } = req.params;
     
-    // Cek murid di Supabase
+    // Cek murid di Supabase dan pastikan milik guru saat ini
     const { data: murid, error: checkErr } = await supabase
       .from('murid')
       .select('*')
       .eq('id_murid', id_murid)
+      .eq('id_guru', req.guru.id_guru)
       .maybeSingle();
 
     if (checkErr || !murid) {
       return res.status(404).json({
         success: false,
-        message: 'Murid tidak ditemukan'
+        message: 'Murid tidak ditemukan atau tidak milik Anda'
       });
     }
     
@@ -243,43 +246,39 @@ async function uploadFotoProfil(req, res) {
         message: 'Tidak ada file yang diupload'
       });
     }
-    
-    // Baca data murid
-    let muridData = await readJSON('murid.json');
-    
-    // Cari index murid
-    const index = muridData.findIndex(m => m.id_murid === id_murid);
-    if (index === -1) {
-      // Hapus file yang diupload jika murid tidak ditemukan
-      await fs.unlink(req.file.path);
+
+    const { data: murid, error } = await supabase
+      .from('murid')
+      .select('*')
+      .eq('id_murid', id_murid)
+      .eq('id_guru', req.guru.id_guru)
+      .maybeSingle();
+
+    if (error || !murid) {
+      await fs.unlink(req.file.path).catch(() => {});
       return res.status(404).json({
         success: false,
-        message: 'Murid tidak ditemukan'
+        message: 'Murid tidak ditemukan atau tidak milik Anda'
       });
     }
-    
-    // Hapus foto lama jika ada
-    if (muridData[index].foto_profil) {
-      const oldPhotoPath = path.join(__dirname, '../../public', muridData[index].foto_profil);
+
+    if (murid.foto_profil) {
+      const oldPhotoPath = path.join(__dirname, '../../public', murid.foto_profil);
       try {
         await fs.unlink(oldPhotoPath);
       } catch (e) {
         // Ignore if old file doesn't exist
       }
     }
-    
-    // Update foto_profil dengan path file baru
+
     const fotoPath = '/uploads/' + req.file.filename;
-    muridData[index].foto_profil = fotoPath;
-    
-    // Simpan ke JSON
-    await writeJSON('murid.json', muridData);
-    
+    await updateRow('murid', 'id_murid', id_murid, { foto_profil: fotoPath });
+
     res.json({
       success: true,
       message: 'Foto profil berhasil diupload',
       data: {
-        id_murid: muridData[index].id_murid,
+        id_murid,
         foto_profil: fotoPath
       }
     });
@@ -299,7 +298,7 @@ async function uploadFotoProfil(req, res) {
  */
 async function downloadAllQRPDF(req, res) {
   try {
-    const muridData = await readAll('murid');
+    const muridData = await readMuridByGuru(req.guru.id_guru);
     const settings = await readSettings();
     
     const muridAktif = muridData.filter(m => m.status === 'aktif');
@@ -415,7 +414,7 @@ async function downloadAllQRPDF(req, res) {
  */
 async function downloadAllQRZIP(req, res) {
   try {
-    const muridData = await readAll('murid');
+    const muridData = await readMuridByGuru(req.guru.id_guru);
     const settings = await readSettings();
     
     const muridAktif = muridData.filter(m => m.status === 'aktif');

@@ -30,7 +30,7 @@
   <main class="main-content">
     <div class="page-header">
       <h1>Dashboard</h1>
-      <p>Selamat datang di aplikasi presensi QR harian Ibu Riris</p>
+      <p id="welcomeText">Selamat datang di aplikasi presensi QR harian</p>
     </div>
 
     <!-- Stats Cards -->
@@ -107,7 +107,8 @@
           return;
         }
         
-        document.getElementById('userName').textContent = data.guru.name;
+        document.getElementById('userName').textContent = data.guru.nama_lengkap;
+        document.getElementById('welcomeText').textContent = `Selamat datang di aplikasi presensi QR harian ${data.guru.nama_lengkap}`;
       } catch (error) {
         console.error('Error loading user info:', error);
       }

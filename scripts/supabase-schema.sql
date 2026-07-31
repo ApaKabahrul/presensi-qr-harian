@@ -23,8 +23,18 @@ CREATE TABLE IF NOT EXISTS murid (
   qr_token    TEXT UNIQUE NOT NULL,
   status      TEXT DEFAULT 'aktif',
   foto_profil TEXT DEFAULT NULL,
+  id_guru     TEXT REFERENCES guru(id_guru),
   created_at  TIMESTAMPTZ DEFAULT now()
 );
+
+-- Pastikan kolom id_guru ada jika schema sudah berjalan sebelumnya
+ALTER TABLE murid
+  ADD COLUMN IF NOT EXISTS id_guru TEXT REFERENCES guru(id_guru);
+
+-- Set semua murid yang sudah ada ke guru default g001
+UPDATE murid
+SET id_guru = 'g001'
+WHERE id_guru IS NULL OR id_guru = '';
 
 -- 3. Tabel presensi_harian
 CREATE TABLE IF NOT EXISTS presensi_harian (
@@ -65,6 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_presensi_tanggal ON presensi_harian(tanggal);
 CREATE INDEX IF NOT EXISTS idx_presensi_murid ON presensi_harian(id_murid);
 CREATE INDEX IF NOT EXISTS idx_presensi_status ON presensi_harian(status);
 CREATE INDEX IF NOT EXISTS idx_murid_status ON murid(status);
+CREATE INDEX IF NOT EXISTS idx_murid_id_guru ON murid(id_guru);
 CREATE INDEX IF NOT EXISTS idx_guru_username ON guru(username);
 CREATE INDEX IF NOT EXISTS idx_presensi_tanggal_murid ON presensi_harian(tanggal, id_murid);
 

@@ -1,4 +1,4 @@
-const { supabase, readAll, readSettings } = require('../utils/supabase');
+const { supabase, readMuridByGuru, readSettings } = require('../utils/supabase');
 const { jsPDF } = require('jspdf');
 const autoTable = require('jspdf-autotable').default || require('jspdf-autotable').autoTable || require('jspdf-autotable');
 const XLSX = require('xlsx');
@@ -10,17 +10,23 @@ async function exportPDF(req, res) {
   try {
     const { tanggal_mulai, tanggal_selesai, status, id_murid } = req.query;
     
-    const muridData = await readAll('murid');
+    const muridData = await readMuridByGuru(req.guru.id_guru);
     const settings = await readSettings();
+    const muridIds = muridData.map(m => m.id_murid);
 
-    let query = supabase.from('presensi_harian').select('*');
-    if (tanggal_mulai) query = query.gte('tanggal', tanggal_mulai);
-    if (tanggal_selesai) query = query.lte('tanggal', tanggal_selesai);
-    if (status) query = query.eq('status', status);
-    if (id_murid) query = query.eq('id_murid', id_murid);
+    let filtered = [];
+    if (muridIds.length > 0) {
+      let query = supabase.from('presensi_harian').select('*');
+      if (tanggal_mulai) query = query.gte('tanggal', tanggal_mulai);
+      if (tanggal_selesai) query = query.lte('tanggal', tanggal_selesai);
+      if (status) query = query.eq('status', status);
+      query = query.in('id_murid', muridIds);
+      if (id_murid) query = query.eq('id_murid', id_murid);
 
-    const { data: filtered, error } = await query;
-    if (error) throw error;
+      const { data, error } = await query;
+      if (error) throw error;
+      filtered = data || [];
+    }
     
     // Group by murid
     const muridPresensi = {};
@@ -100,17 +106,23 @@ async function exportExcel(req, res) {
   try {
     const { tanggal_mulai, tanggal_selesai, status, id_murid } = req.query;
     
-    const muridData = await readAll('murid');
+    const muridData = await readMuridByGuru(req.guru.id_guru);
     const settings = await readSettings();
+    const muridIds = muridData.map(m => m.id_murid);
 
-    let query = supabase.from('presensi_harian').select('*');
-    if (tanggal_mulai) query = query.gte('tanggal', tanggal_mulai);
-    if (tanggal_selesai) query = query.lte('tanggal', tanggal_selesai);
-    if (status) query = query.eq('status', status);
-    if (id_murid) query = query.eq('id_murid', id_murid);
+    let filtered = [];
+    if (muridIds.length > 0) {
+      let query = supabase.from('presensi_harian').select('*');
+      if (tanggal_mulai) query = query.gte('tanggal', tanggal_mulai);
+      if (tanggal_selesai) query = query.lte('tanggal', tanggal_selesai);
+      if (status) query = query.eq('status', status);
+      query = query.in('id_murid', muridIds);
+      if (id_murid) query = query.eq('id_murid', id_murid);
 
-    const { data: filtered, error } = await query;
-    if (error) throw error;
+      const { data, error } = await query;
+      if (error) throw error;
+      filtered = data || [];
+    }
     
     // Sheet 1: Detail Presensi
     const detailData = (filtered || []).map(p => {
@@ -196,14 +208,18 @@ async function exportPDFBulanan(req, res) {
     const lastDay = new Date(parseInt(tahunStr), parseInt(bulanStr), 0).getDate();
     const tanggalSelesai = `${tahunStr}-${bulanStr}-${String(lastDay).padStart(2, '0')}`;
 
-    const muridData = await readAll('murid');
+    const muridData = await readMuridByGuru(req.guru.id_guru);
     const settings = await readSettings();
+    const muridIds = muridData.map(m => m.id_murid);
 
-    const { data: presensiBulan, error } = await supabase
-      .from('presensi_harian')
-      .select('*')
-      .gte('tanggal', tanggalMulai)
-      .lte('tanggal', tanggalSelesai);
+    const { data: presensiBulan, error } = muridIds.length > 0
+      ? await supabase
+        .from('presensi_harian')
+        .select('*')
+        .gte('tanggal', tanggalMulai)
+        .lte('tanggal', tanggalSelesai)
+        .in('id_murid', muridIds)
+      : { data: [], error: null };
 
     if (error) throw error;
 
@@ -348,14 +364,18 @@ async function exportExcelBulanan(req, res) {
     const lastDay = new Date(parseInt(tahunStr), parseInt(bulanStr), 0).getDate();
     const tanggalSelesai = `${tahunStr}-${bulanStr}-${String(lastDay).padStart(2, '0')}`;
 
-    const muridData = await readAll('murid');
+    const muridData = await readMuridByGuru(req.guru.id_guru);
     const settings = await readSettings();
+    const muridIds = muridData.map(m => m.id_murid);
 
-    const { data: presensiBulan, error } = await supabase
-      .from('presensi_harian')
-      .select('*')
-      .gte('tanggal', tanggalMulai)
-      .lte('tanggal', tanggalSelesai);
+    const { data: presensiBulan, error } = muridIds.length > 0
+      ? await supabase
+        .from('presensi_harian')
+        .select('*')
+        .gte('tanggal', tanggalMulai)
+        .lte('tanggal', tanggalSelesai)
+        .in('id_murid', muridIds)
+      : { data: [], error: null };
 
     if (error) throw error;
 

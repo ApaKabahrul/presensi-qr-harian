@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const { writeJSON } = require('./server/utils/jsonHandler');
+const { supabase, insertRow } = require('./server/utils/supabase');
 
 async function setupDefaultGuru() {
   try {
@@ -13,13 +13,25 @@ async function setupDefaultGuru() {
       password_hash,
       nama_lengkap: 'Guru Pengajar'
     };
-    
-    await writeJSON('guru.json', [defaultGuru]);
-    
-    console.log('Default guru account created successfully!');
-    console.log('Username: guru');
-    console.log('Password: guru123');
-    console.log('Password hash:', password_hash);
+
+    const { data: existingGuru, error: checkErr } = await supabase
+      .from('guru')
+      .select('id_guru')
+      .eq('id_guru', defaultGuru.id_guru)
+      .maybeSingle();
+
+    if (checkErr) {
+      throw checkErr;
+    }
+
+    if (!existingGuru) {
+      await insertRow('guru', defaultGuru);
+      console.log('Default guru account created successfully!');
+      console.log('Username: guru');
+      console.log('Password: guru123');
+    } else {
+      console.log('Default guru account already exists, no changes made.');
+    }
     
   } catch (error) {
     console.error('Error setting up default guru:', error);

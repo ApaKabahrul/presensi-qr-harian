@@ -11,6 +11,7 @@ data/*.lock
 data/*.jpeg
 data/*.png
 data/*.html
+data/*.md
 
 # SSL certificates (auto-generated)
 certs/
@@ -38,3 +39,6 @@ scripts/test-jwt.js
 # Build output
 dist/
 build/
+
+# plan
+plan.md

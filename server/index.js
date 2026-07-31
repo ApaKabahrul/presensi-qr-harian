@@ -111,29 +111,76 @@ function ensureCertificate() {
   return true;
 }
 
-// Initialize default guru account if not exists
+// Initialize default guru accounts if not exists
 async function initializeDefaultData() {
   try {
-    const { data: guruData } = await supabase
-      .from('guru')
-      .select('id_guru')
-      .limit(1);
-
-    if (!guruData || guruData.length === 0) {
-      const defaultPassword = 'guru123';
-      const saltRounds = 10;
-      const password_hash = await bcrypt.hash(defaultPassword, saltRounds);
-      
-      const defaultGuru = {
+    const defaultGurus = [
+      {
         id_guru: 'g001',
         username: 'guru',
-        password_hash,
-        nama_lengkap: 'Guru Pengajar'
-      };
-      
-      await insertRow('guru', defaultGuru);
-      console.log('Default guru account created (username: guru, password: guru123)');
+        password: 'guru123',
+        nama_lengkap: 'Bu Riris'
+      },
+      {
+        id_guru: 'g002',
+        username: 'ika',
+        password: 'ibuikajatmika',
+        nama_lengkap: 'Ika'
+      }
+    ];
+
+    const saltRounds = 10;
+    for (const guruInfo of defaultGurus) {
+      const { data: existingGuru, error: checkErr } = await supabase
+        .from('guru')
+        .select('id_guru')
+        .eq('id_guru', guruInfo.id_guru)
+        .maybeSingle();
+
+      if (checkErr) {
+        throw checkErr;
+      }
+
+      if (!existingGuru) {
+        const password_hash = await bcrypt.hash(guruInfo.password, saltRounds);
+        const defaultGuru = {
+          id_guru: guruInfo.id_guru,
+          username: guruInfo.username,
+          password_hash,
+          nama_lengkap: guruInfo.nama_lengkap
+        };
+
+        await insertRow('guru', defaultGuru);
+        console.log(`Default guru account created (username: ${guruInfo.username}, password: ${guruInfo.password})`);
+      }
     }
+
+    // Set semua murid yang belum memiliki id_guru ke guru default g001.
+    const nullUpdate = await supabase
+      .from('murid')
+      .update({ id_guru: 'g001' })
+      .is('id_guru', null)
+      .select('id_murid');
+
+    if (nullUpdate.error) {
+      throw nullUpdate.error;
+    }
+
+    const emptyUpdate = await supabase
+      .from('murid')
+      .update({ id_guru: 'g001' })
+      .eq('id_guru', '')
+      .select('id_murid');
+
+    if (emptyUpdate.error) {
+      throw emptyUpdate.error;
+    }
+
+    const updatedCount = [nullUpdate.data, emptyUpdate.data]
+      .filter(Boolean)
+      .reduce((total, data) => total + (Array.isArray(data) ? data.length : 0), 0);
+
+    console.log(`Existing murid yang belum punya guru sekarang diupdate ke g001. Total rows affected: ${updatedCount}`);
   } catch (error) {
     console.error('Error initializing default data:', error);
   }

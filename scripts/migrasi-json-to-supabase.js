@@ -47,6 +47,17 @@ function cleanRow(row) {
   return cleaned;
 }
 
+function normalizeMuridRow(row) {
+  const cleaned = { ...cleanRow(row) };
+  if (!cleaned.id_guru || cleaned.id_guru === '') {
+    cleaned.id_guru = 'g001';
+  }
+  if (!('foto_profil' in cleaned)) {
+    cleaned.foto_profil = null;
+  }
+  return cleaned;
+}
+
 async function migrate() {
   console.log('\n╔══════════════════════════════════════╗');
   console.log('║  MIGRASI DATA JSON → SUPABASE      ║');
@@ -66,7 +77,7 @@ async function migrate() {
   console.log('📦 Migrasi: murid...');
   const murid = readJSONFile('murid.json');
   if (murid && murid.length > 0) {
-    const clean = murid.map(cleanRow);
+    const clean = murid.map(normalizeMuridRow);
     const { error } = await supabase.from('murid').upsert(clean, { onConflict: 'id_murid' });
     if (error) console.error('  ❌ Gagal:', error.message);
     else console.log(`  ✅ ${clean.length} murid berhasil dimigrasi`);

@@ -1,4 +1,4 @@
-const { supabase, readAll, insertRow, updateRow, getPresensiWithMurid, generateId, readSettings } = require('../utils/supabase');
+const { supabase, readMuridByGuru, insertRow, updateRow, getPresensiWithMurid, generateId, generateQRToken, readSettings } = require('../utils/supabase');
 
 // ─── Helper: Waktu Indonesia Barat (UTC+7) ───────────────────────────────────
 function getWIBNow() {
@@ -41,11 +41,12 @@ async function getPresensiByDate(req, res) {
   try {
     const { tanggal } = req.params;
 
-    // JOIN presensi + murid agar NIS dan Nama langsung tersedia
+    // JOIN presensi + murid agar NIS dan Nama langsung tersedia, hanya untuk murid guru saat ini
     const { data: presensiTanggal, error } = await supabase
       .from('presensi_harian')
-      .select('*, murid(nis, nama)')
+      .select('*, murid(nis, nama, id_guru)')
       .eq('tanggal', tanggal)
+      .eq('murid.id_guru', req.guru.id_guru)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
@@ -86,12 +87,16 @@ async function scanQR(req, res) {
       });
     }
     
-    const muridData = await readAll('murid');
+    const { data: murid, error: muridErr } = await supabase
+      .from('murid')
+      .select('*')
+      .eq('qr_token', token)
+      .eq('id_guru', req.guru.id_guru)
+      .maybeSingle();
+
     const settings = await readSettings();
     
-    const murid = muridData.find(m => m.qr_token === token);
-    
-    if (!murid) {
+    if (muridErr || !murid) {
       return res.status(404).json({
         success: false,
         message: 'QR token tidak valid'
@@ -181,6 +186,20 @@ async function absenManual(req, res) {
       });
     }
     
+    const { data: murid, error: muridErr } = await supabase
+      .from('murid')
+      .select('id_murid')
+      .eq('id_murid', id_murid)
+      .eq('id_guru', req.guru.id_guru)
+      .maybeSingle();
+
+    if (muridErr || !murid) {
+      return res.status(404).json({
+        success: false,
+        message: 'Murid tidak ditemukan atau tidak milik Anda'
+      });
+    }
+
     // Cek duplikat langsung dari Supabase
     const { data: sudahPresensi, error: checkErr } = await supabase
       .from('presensi_harian')
@@ -242,17 +261,17 @@ async function koreksiPresensi(req, res) {
       });
     }
 
-    // Ambil data presensi yang akan dikoreksi
+    // Ambil data presensi yang akan dikoreksi dan pastikan milik murid guru saat ini
     const { data: presensi, error: findErr } = await supabase
       .from('presensi_harian')
-      .select('*')
+      .select('*, murid(id_guru)')
       .eq('id_presensi', id_presensi)
       .maybeSingle();
 
-    if (findErr || !presensi) {
+    if (findErr || !presensi || presensi.murid?.id_guru !== req.guru.id_guru) {
       return res.status(404).json({
         success: false,
-        message: 'Data presensi tidak ditemukan'
+        message: 'Data presensi tidak ditemukan atau tidak milik Anda'
       });
     }
     
@@ -303,7 +322,8 @@ async function getRekap(req, res) {
       tanggal_mulai,
       tanggal_selesai,
       status,
-      id_murid
+      id_murid,
+      id_guru: req.guru.id_guru
     });
     
     res.json({
@@ -327,10 +347,11 @@ async function getStatistik(req, res) {
   try {
     const { tanggal_mulai, tanggal_selesai } = req.query;
 
-    let query = supabase.from('presensi_harian').select('status');
+    let query = supabase.from('presensi_harian').select('status, murid(id_guru)');
 
     if (tanggal_mulai) query = query.gte('tanggal', tanggal_mulai);
     if (tanggal_selesai) query = query.lte('tanggal', tanggal_selesai);
+    query = query.eq('murid.id_guru', req.guru.id_guru);
 
     const { data: filtered, error } = await query;
 
@@ -379,18 +400,21 @@ async function tutupPresensi(req, res) {
       });
     }
     
-    const muridData = await readAll('murid');
-    const { data: presensiHariIni } = await supabase
-      .from('presensi_harian')
-      .select('id_murid')
-      .eq('tanggal', tanggal);
+    const muridAktif = await readMuridByGuru(req.guru.id_guru, 'aktif');
+    const muridIds = muridAktif.map(m => m.id_murid);
 
-    const muridAktif = muridData.filter(m => m.status === 'aktif');
+    const { data: presensiHariIni } = muridIds.length > 0
+      ? await supabase
+        .from('presensi_harian')
+        .select('id_murid')
+        .eq('tanggal', tanggal)
+        .in('id_murid', muridIds)
+      : { data: [] };
+
     const idSudahPresensi = (presensiHariIni || []).map(p => p.id_murid);
     const muridBelumPresensi = muridAktif.filter(m => !idSudahPresensi.includes(m.id_murid));
     
     const rows = muridBelumPresensi.map(murid => ({
-      id_presensi: generateIdSync('p', muridBelumPresensi.length),
       tanggal,
       id_murid: murid.id_murid,
       jam_presensi: null,
@@ -454,22 +478,21 @@ async function getRekapBulanan(req, res) {
     }
 
     // Ambil semua presensi dalam rentang bulan
-    const { data: presensiBulan, error } = await supabase
-      .from('presensi_harian')
-      .select('*')
-      .gte('tanggal', tanggalMulai)
-      .lte('tanggal', tanggalSelesai);
+    const muridAktif = await readMuridByGuru(req.guru.id_guru, 'aktif');
+    const muridIds = muridAktif.map(m => m.id_murid);
+
+    const { data: presensiBulan, error } = muridIds.length > 0
+      ? await supabase
+        .from('presensi_harian')
+        .select('*')
+        .gte('tanggal', tanggalMulai)
+        .lte('tanggal', tanggalSelesai)
+        .in('id_murid', muridIds)
+      : { data: [] };
 
     if (error) throw error;
 
-    // Ambil semua murid aktif
-    const { data: muridAktif, error: muridErr } = await supabase
-      .from('murid')
-      .select('*')
-      .eq('status', 'aktif')
-      .order('nis', { ascending: true });
-
-    if (muridErr) throw muridErr;
+    const muridAktifData = muridAktif;
 
     // Hitung jumlah hari efektif
     const hariEfektifSet = new Set();
@@ -486,7 +509,7 @@ async function getRekapBulanan(req, res) {
     });
 
     // Buat rekap per murid dengan kolom harian
-    const rekapData = (muridAktif || []).map(murid => {
+    const rekapData = (muridAktifData || []).map(murid => {
       const harian = {};
       const counts = { Hadir: 0, Terlambat: 0, Izin: 0, Sakit: 0, Alpha: 0 };
 

@@ -1,6 +1,9 @@
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
+// NOTE: Semua data backend sekarang menggunakan Supabase, bukan lagi file JSON lokal.
+//       Gunakan helper di file ini untuk memastikan akses data murid dan presensi selalu terfilter
+//       berdasarkan id_guru, sehingga setiap guru hanya melihat muridnya sendiri.
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -70,8 +73,67 @@ async function readWhere(table, filters = {}) {
   return data || [];
 }
 
+/** * Membaca semua data dari tabel dengan filter opsional
+ * @param {string} table
+ * @param {Object} filters
+ * @returns {Array}
+ */
+async function readAllWhere(table, filters = {}) {
+  let query = supabase.from(table).select('*');
+
+  for (const [col, val] of Object.entries(filters)) {
+    if (val !== undefined && val !== null && val !== '') {
+      query = query.eq(col, val);
+    }
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: true });
+  if (error) throw new Error(`Supabase readAllWhere(${table}): ${error.message}`);
+  return data || [];
+}
+
 /**
- * Insert satu baris
+ * Membaca semua murid untuk guru tertentu
+ * @param {string} id_guru
+ * @param {string|null} status
+ * @returns {Array}
+ */
+async function readMuridByGuru(id_guru, status = null) {
+  if (!id_guru) {
+    return [];
+  }
+
+  let query = supabase.from('murid').select('*').eq('id_guru', id_guru);
+
+  if (status !== null) {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(`Supabase readMuridByGuru(${id_guru}): ${error.message}`);
+  return sortMuridByNIS(data || []);
+}
+
+/**
+ * Sortir daftar murid berdasarkan nilai numerik NIS
+ * @param {Array} muridData
+ * @returns {Array}
+ */
+function sortMuridByNIS(muridData) {
+  return [...(muridData || [])].sort((a, b) => {
+    const na = parseInt(a.nis, 10);
+    const nb = parseInt(b.nis, 10);
+
+    if (!isNaN(na) && !isNaN(nb)) {
+      return na - nb;
+    }
+    if (a.nis < b.nis) return -1;
+    if (a.nis > b.nis) return 1;
+    return 0;
+  });
+}
+
+/** * Insert satu baris
  * @param {string} table - Nama tabel
  * @param {Object} row - Data baris
  * @returns {Object|null}
@@ -167,7 +229,7 @@ async function getPresensiWithMurid(filters = {}) {
     .from('presensi_harian')
     .select(`
       *,
-      murid (nis, nama)
+      murid (nis, nama, id_guru)
     `);
 
   if (filters.tanggal_mulai) {
@@ -181,6 +243,9 @@ async function getPresensiWithMurid(filters = {}) {
   }
   if (filters.id_murid) {
     query = query.eq('id_murid', filters.id_murid);
+  }
+  if (filters.id_guru) {
+    query = query.eq('murid.id_guru', filters.id_guru);
   }
 
   const { data, error } = await query.order('created_at', { ascending: true });
@@ -257,6 +322,9 @@ module.exports = {
   readAll,
   readOne,
   readWhere,
+  readAllWhere,
+  readMuridByGuru,
+  sortMuridByNIS,
   insertRow,
   insertRows,
   updateRow,
