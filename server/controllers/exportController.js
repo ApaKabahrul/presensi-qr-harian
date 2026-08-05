@@ -3,6 +3,18 @@ const { jsPDF } = require('jspdf');
 const autoTable = require('jspdf-autotable').default || require('jspdf-autotable').autoTable || require('jspdf-autotable');
 const XLSX = require('xlsx');
 
+function isSundayDate(dateStr) {
+  const date = new Date(`${dateStr}T00:00:00`);
+  return date.getDay() === 0;
+}
+
+function normalizeStatusForExport(status, dateStr) {
+  if (isSundayDate(dateStr)) {
+    return 'Libur';
+  }
+  return status;
+}
+
 /**
  * Export rekap presensi ke PDF (API)
  */
@@ -132,7 +144,7 @@ async function exportExcel(req, res) {
         'NIS': murid ? murid.nis : '',
         'Nama': murid ? murid.nama : '',
         'Jam Presensi': p.jam_presensi || '-',
-        'Status': p.status,
+        'Status': normalizeStatusForExport(p.status, p.tanggal),
         'Metode': p.metode_presensi,
         'Keterangan': p.keterangan || '-'
       };
@@ -229,6 +241,11 @@ async function exportPDFBulanan(req, res) {
       semuaTanggal.push(`${tahunStr}-${bulanStr}-${String(d).padStart(2, '0')}`);
     }
 
+    const sundayColumns = semuaTanggal.reduce((cols, tgl, index) => {
+      if (isSundayDate(tgl)) cols.push(index + 3);
+      return cols;
+    }, []);
+
     // Hitung hari efektif
     const hariEfektifSet = new Set();
     (presensiBulan || []).forEach(p => hariEfektifSet.add(p.tanggal));
@@ -265,8 +282,10 @@ async function exportPDFBulanan(req, res) {
       const counts = { H: 0, T: 0, I: 0, S: 0, A: 0 };
 
       semuaTanggal.forEach(tgl => {
-        const status = (presensiMap[murid.id_murid] && presensiMap[murid.id_murid][tgl]) || null;
-        if (status) {
+        const status = presensiMap[murid.id_murid] && presensiMap[murid.id_murid][tgl];
+        if (isSundayDate(tgl)) {
+          row.push('L');
+        } else if (status) {
           const abbr = status === 'Hadir' ? 'H' : status === 'Terlambat' ? 'T' : status === 'Izin' ? 'I' : status === 'Sakit' ? 'S' : 'A';
           row.push(abbr);
           counts[abbr]++;
@@ -313,23 +332,36 @@ async function exportPDFBulanan(req, res) {
       columnStyles,
       margin: { left: margin, right: margin },
       didParseCell: (data) => {
+        if (data.section === 'head' && sundayColumns.includes(data.column.index)) {
+          data.cell.styles.fillColor = [255, 220, 220];
+          data.cell.styles.textColor = [180, 30, 30];
+        }
+
         if (data.section === 'body' && data.column && data.column.index >= 3 && data.column.index < 3 + dateCols) {
           const val = data.cell.text && data.cell.text[0];
-          if (val === 'H') {
-            data.cell.styles.fillColor = [200, 250, 220]; // hijau muda
-            data.cell.styles.textColor = [13, 92, 70];
-          } else if (val === 'T') {
-            data.cell.styles.fillColor = [255, 243, 205]; // kuning muda
-            data.cell.styles.textColor = [133, 100, 4];
-          } else if (val === 'I') {
-            data.cell.styles.fillColor = [209, 236, 255]; // biru muda
-            data.cell.styles.textColor = [0, 83, 159];
-          } else if (val === 'S') {
-            data.cell.styles.fillColor = [230, 215, 255]; // ungu muda
-            data.cell.styles.textColor = [91, 33, 182];
-          } else if (val === 'A') {
-            data.cell.styles.fillColor = [255, 220, 220]; // merah muda
+          if (sundayColumns.includes(data.column.index)) {
+            data.cell.styles.fillColor = [255, 220, 220];
             data.cell.styles.textColor = [180, 30, 30];
+            if (!val || val === '') {
+              data.cell.text = ['L'];
+            }
+          } else {
+            if (val === 'H') {
+              data.cell.styles.fillColor = [200, 250, 220]; // hijau muda
+              data.cell.styles.textColor = [13, 92, 70];
+            } else if (val === 'T') {
+              data.cell.styles.fillColor = [255, 243, 205]; // kuning muda
+              data.cell.styles.textColor = [133, 100, 4];
+            } else if (val === 'I') {
+              data.cell.styles.fillColor = [209, 236, 255]; // biru muda
+              data.cell.styles.textColor = [0, 83, 159];
+            } else if (val === 'S') {
+              data.cell.styles.fillColor = [230, 215, 255]; // ungu muda
+              data.cell.styles.textColor = [91, 33, 182];
+            } else if (val === 'A') {
+              data.cell.styles.fillColor = [255, 220, 220]; // merah muda
+              data.cell.styles.textColor = [180, 30, 30];
+            }
           }
         }
       }
@@ -411,10 +443,13 @@ async function exportExcelBulanan(req, res) {
 
       semuaTanggal.forEach(tgl => {
         const status = (presensiMap[murid.id_murid] && presensiMap[murid.id_murid][tgl]) || '';
-        // Abbreviate for Excel: H / T / I / S / A / empty
-        const abbr = status === 'Hadir' ? 'H' : status === 'Terlambat' ? 'T' : status === 'Izin' ? 'I' : status === 'Sakit' ? 'S' : status === 'Alpha' ? 'A' : '';
-        row.push(abbr);
-        if (status && counts[status] !== undefined) counts[status]++;
+        if (isSundayDate(tgl)) {
+          row.push('LIBUR');
+        } else {
+          const abbr = status === 'Hadir' ? 'H' : status === 'Terlambat' ? 'T' : status === 'Izin' ? 'I' : status === 'Sakit' ? 'S' : status === 'Alpha' ? 'A' : '';
+          row.push(abbr);
+          if (status && counts[status] !== undefined) counts[status]++;
+        }
       });
 
       const totalHadir = counts.Hadir + counts.Terlambat;
@@ -433,7 +468,7 @@ async function exportExcelBulanan(req, res) {
         'NIS': murid ? murid.nis : '',
         'Nama': murid ? murid.nama : '',
         'Jam': p.jam_presensi || '-',
-        'Status': p.status,
+        'Status': normalizeStatusForExport(p.status, p.tanggal),
         'Metode': p.metode_presensi,
         'Keterangan': p.keterangan || '-'
       };
