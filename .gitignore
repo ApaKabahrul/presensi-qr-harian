@@ -12,6 +12,7 @@ data/*.jpeg
 data/*.png
 data/*.html
 data/*.md
+data/*.txt
 
 # SSL certificates (auto-generated)
 certs/
@@ -31,6 +32,11 @@ Thumbs.db
 # Scripts dengan kredensial
 scripts/ubah-password-guru.js
 scripts/test-jwt.js
+scripts/import-murid-*.js
+scripts/import-murid-*.txt
+scripts/create-guru-*.js
+!scripts/import-murid-g003.js
+!scripts/import-murid-g003.txt
 
 # IDE
 .vscode/
