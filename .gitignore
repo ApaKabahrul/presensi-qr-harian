@@ -35,8 +35,6 @@ scripts/test-jwt.js
 scripts/import-murid-*.js
 scripts/import-murid-*.txt
 scripts/create-guru-*.js
-!scripts/import-murid-g003.js
-!scripts/import-murid-g003.txt
 
 # IDE
 .vscode/
