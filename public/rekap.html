@@ -215,6 +215,7 @@
     .cell-i { background: #d1ecf1; color: #00537f; font-weight: 600; }
     .cell-s { background: #e6d7ff; color: #5b21b6; font-weight: 600; }
     .cell-a { background: #fdd; color: #b41e1e; font-weight: 600; }
+    .cell-libur { background: #f8d7da; color: #b41e1e; font-weight: 600; }
     .cell-empty { color: var(--ink-faint); }
   </style>
 </head>
@@ -812,8 +813,13 @@
 
         // Kolom per tanggal
         data.semua_tanggal.forEach(tgl => {
+          const [year, month, day] = tgl.split('-').map(Number);
+          const isSunday = new Date(year, month - 1, day).getDay() === 0;
           const status = r.harian[tgl];
-          if (!status) {
+
+          if (isSunday) {
+            row += `<td class="cell-libur" title="Libur">L</td>`;
+          } else if (!status) {
             row += `<td class="cell-empty">-</td>`;
           } else {
             const abbr = status === 'Hadir' ? 'H' : status === 'Terlambat' ? 'T' : status === 'Izin' ? 'I' : status === 'Sakit' ? 'S' : 'A';
